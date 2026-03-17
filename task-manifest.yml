@@ -1,0 +1,513 @@
+project:
+  name: Piles
+  type: electron-desktop-utility
+  summary: >
+    A visual organization layer for the direct contents of one folder.
+    Users can arrange items into spatial piles without moving files on disk
+    by default.
+  stack:
+    - Electron
+    - React
+    - TypeScript
+    - Zustand
+    - JSON persistence
+    - IPC
+  constraints:
+    - Single-folder workspace only
+    - Groups are virtual in MVP
+    - Filesystem remains the source of truth for live files
+    - No AI grouping
+    - No cloud sync
+    - No Finder replacement
+    - No hidden filesystem mutations
+
+document_roles:
+  prd: canonical product behavior and scope
+  plan: canonical contracts, orchestration, and sequencing
+  manifest: machine-readable mirror of the plan
+
+canonical_decisions:
+  filesystem_truth:
+    - file existence
+    - file names
+    - file paths
+    - file metadata
+  app_truth:
+    - item positions
+    - pile membership
+    - pile geometry
+    - collapsed state
+    - workspace settings
+  rename_policy:
+    path_based_identity: true
+    rename_treated_as_remove_add: true
+    workspace_must_remain_stable: true
+    layout_continuity_guaranteed: false
+  model_boundary:
+    live_metadata: FileMeta
+    persisted_layout: ItemLayout
+    persisted_groups: GroupModel
+    workspace_state: WorkspaceData
+
+contracts:
+  shared_types:
+    FileMeta:
+      description: Live filesystem metadata for one folder item.
+      fields:
+        id: string
+        path: string
+        name: string
+        extension: "string | null"
+        isDirectory: boolean
+        kind: '"file" | "folder"'
+        createdAt: "string | null"
+        modifiedAt: "string | null"
+    Point:
+      fields:
+        x: number
+        y: number
+    Size:
+      fields:
+        width: number
+        height: number
+    ItemLayout:
+      description: Persisted visual layout for one item.
+      fields:
+        id: string
+        position: Point
+        groupId: "string | null"
+        zIndex: number
+    GroupModel:
+      fields:
+        id: string
+        name: string
+        position: Point
+        size: Size
+        collapsed: boolean
+        itemIds: "string[]"
+    WorkspaceSettings:
+      fields:
+        snapToGrid: boolean
+    WorkspaceData:
+      fields:
+        folderPath: string
+        groups: "Record<string, GroupModel>"
+        itemLayouts: "Record<string, ItemLayout>"
+        settings: WorkspaceSettings
+
+  preload_api:
+    selectFolder: "() => Promise<string | null>"
+    getFolderItems: "(folderPath: string) => Promise<FileMeta[]>"
+    loadWorkspace: "(folderPath: string) => Promise<WorkspaceData | null>"
+    saveWorkspace: "(workspace: WorkspaceData) => Promise<void>"
+    openFile: "(path: string) => Promise<void>"
+    revealInFinder: "(path: string) => Promise<void>"
+    renameFile: "(path: string, newName: string) => Promise<{ newPath: string }>"
+    trashFile: "(path: string) => Promise<void>"
+    watchFolder: "(folderPath: string) => Promise<void>"
+    unwatchFolder: "() => Promise<void>"
+    onFolderChanged: "(callback: () => void) => () => void"
+
+agents:
+  - id: manager
+    name: Manager Agent
+    responsibilities:
+      - freeze contracts before downstream work starts
+      - enforce PRD scope and non-goals
+      - assign work by milestone and wave
+      - reject contract drift and speculative scope
+    outputs:
+      - milestone briefs
+      - acceptance decisions
+      - contract approvals
+
+  - id: scaffold
+    name: Scaffold Agent
+    responsibilities:
+      - establish project structure
+      - publish initial shared contract placeholders
+      - define main, preload, renderer, and shared boundaries
+    dependencies: []
+    outputs:
+      - project structure
+      - initial contract surfaces
+
+  - id: filesystem
+    name: Filesystem Agent
+    responsibilities:
+      - folder selection
+      - direct folder reads
+      - file metadata creation
+      - open, reveal, rename, and trash actions
+      - folder watcher support
+    dependencies:
+      - manager
+      - scaffold
+    outputs:
+      - filesystem service
+      - file action handlers
+      - watch support
+
+  - id: persistence
+    name: Persistence Agent
+    responsibilities:
+      - workspace load and save
+      - folder-path hashing
+      - JSON storage under app data
+      - defensive validation and fallback behavior
+    dependencies:
+      - manager
+      - scaffold
+    outputs:
+      - persistence module
+      - workspace repository
+
+  - id: canvas
+    name: Canvas Agent
+    responsibilities:
+      - renderer store
+      - workspace shell
+      - item rendering
+      - selection and marquee behavior
+      - drag and move behavior
+      - persistence integration points
+    dependencies:
+      - filesystem
+      - persistence
+    outputs:
+      - canvas components
+      - renderer store
+      - interaction logic
+
+  - id: groups
+    name: Groups Agent
+    responsibilities:
+      - pile creation and rendering
+      - pile management actions
+      - membership updates
+      - deterministic auto-group rules
+    dependencies:
+      - canvas
+    outputs:
+      - pile components
+      - group actions
+      - auto-group rules
+
+  - id: sync
+    name: Sync Agent
+    responsibilities:
+      - watch orchestration
+      - rescan and reconcile behavior
+      - safe cleanup of stale layout state
+    dependencies:
+      - filesystem
+      - persistence
+      - canvas
+      - groups
+    outputs:
+      - reconcile logic
+      - renderer subscription flow
+
+  - id: qa
+    name: QA Agent
+    responsibilities:
+      - PRD conformance review
+      - contract consistency review
+      - manual acceptance testing
+      - bug reporting
+    dependencies:
+      - sync
+    outputs:
+      - pass_fail_report
+      - bug_list
+      - top_priority_fixes
+
+execution_order:
+  waves:
+    - id: wave_1
+      name: scaffold_and_contracts
+      primary_agents:
+        - manager
+        - scaffold
+      outcome:
+        - shared contracts finalized
+        - preload API names frozen
+        - manifest shape agreed
+
+    - id: wave_2
+      name: filesystem_and_persistence
+      primary_agents:
+        - filesystem
+        - persistence
+      outcome:
+        - folder read works
+        - workspace load and save work
+        - main-process file actions exist
+
+    - id: wave_3
+      name: canvas
+      primary_agents:
+        - canvas
+      outcome:
+        - renderer store exists
+        - items render
+        - selection, marquee, and move behavior work
+        - position persistence wiring exists
+
+    - id: wave_4
+      name: groups
+      primary_agents:
+        - groups
+        - canvas
+      outcome:
+        - piles render
+        - pile actions work
+        - pile membership updates work
+
+    - id: wave_5
+      name: file_actions_and_sync
+      primary_agents:
+        - filesystem
+        - canvas
+        - sync
+      outcome:
+        - UI file actions work
+        - watch, rescan, and reconcile flow works
+        - external rename is survivable
+
+    - id: wave_6
+      name: auto_group_and_qa
+      primary_agents:
+        - groups
+        - canvas
+        - qa
+      outcome:
+        - auto-group works deterministically
+        - empty, loading, and error states are sane
+        - QA pass completes
+
+milestones:
+  - id: m1
+    name: Bootstrap and contracts
+    primary_agents:
+      - manager
+      - scaffold
+    goal: Create one canonical contract set and agreed package structure.
+    acceptance:
+      - shared contracts are defined once
+      - preload API names are frozen
+      - downstream tasks no longer depend on undefined interfaces
+
+  - id: m2
+    name: Folder load and workspace persistence
+    primary_agents:
+      - filesystem
+      - persistence
+    goal: >
+      Users can select a folder, read its direct contents, and load or save
+      workspace state.
+    acceptance:
+      - Desktop loads
+      - Downloads loads
+      - custom folder loads
+      - workspace JSON load works
+      - workspace JSON save works
+
+  - id: m3
+    name: Canvas render and item movement
+    primary_agents:
+      - canvas
+    goal: Users can render, select, move, and persist loose items.
+    acceptance:
+      - items render
+      - single-select works
+      - multi-select works
+      - marquee select works
+      - drag and move work
+      - positions restore after reload
+
+  - id: m4
+    name: Piles
+    primary_agents:
+      - groups
+      - canvas
+    goal: Users can create and manage virtual piles.
+    acceptance:
+      - empty pile works
+      - create pile from selection works
+      - rename pile works
+      - move pile works
+      - resize pile works
+      - collapse pile works
+      - delete pile preserves files
+      - drag into and out of pile works
+
+  - id: m5
+    name: File actions
+    primary_agents:
+      - filesystem
+      - canvas
+    goal: Users can act on files through the workspace UI.
+    acceptance:
+      - double-click opens file
+      - reveal in Finder works
+      - rename is survivable
+      - trash works
+
+  - id: m6
+    name: Sync
+    primary_agents:
+      - sync
+      - filesystem
+      - canvas
+    goal: The workspace safely reflects external filesystem changes.
+    acceptance:
+      - external add appears
+      - external delete disappears
+      - external move-out disappears
+      - external rename does not corrupt the workspace
+
+  - id: m7
+    name: Auto-group
+    primary_agents:
+      - groups
+      - canvas
+    goal: Users can create deterministic piles from current folder contents.
+    acceptance:
+      - Auto Group creates predictable piles
+      - existing workspace data remains coherent
+      - empty, loading, and error states are sane
+
+  - id: m8
+    name: QA
+    primary_agents:
+      - qa
+      - manager
+    goal: The planning package passes product and contract review.
+    acceptance:
+      - PRD and PLAN are aligned
+      - manifest mirrors the PLAN
+      - acceptance report exists
+
+document_consistency_checks:
+  - task-manifest parses as YAML
+  - contract names match across all planning artifacts
+  - rename policy is stated consistently
+  - FileMeta plus ItemLayout split model is used everywhere
+  - removed API names do not reappear
+
+acceptance_checklist:
+  launch_and_folder:
+    - app launches successfully
+    - Desktop opens
+    - Downloads opens
+    - custom folder opens
+
+  item_rendering_and_movement:
+    - files render as items
+    - folders render as items
+    - click selects one item
+    - multi-select works
+    - marquee select works
+    - drag and move work
+    - relative spacing is preserved during multi-drag
+
+  piles:
+    - create pile works
+    - empty pile works
+    - rename pile works
+    - move pile works
+    - resize pile works
+    - collapse pile works
+    - delete pile preserves files
+    - drag into pile works
+    - drag out of pile works
+
+  persistence:
+    - item positions restore
+    - pile state restores
+    - collapsed state restores
+
+  file_actions:
+    - open works
+    - reveal in Finder works
+    - rename is survivable
+    - trash works
+
+  sync:
+    - external add appears
+    - external delete disappears
+    - external rename does not corrupt the workspace
+    - watch flow does not spam or leak subscriptions
+
+  contract_safety:
+    - renderer does not bypass preload for privileged actions
+    - grouping never mutates the filesystem
+    - workspace state never becomes the source of truth for live files
+
+failure_conditions:
+  - task-manifest cannot be parsed as YAML
+  - removed API names are still referenced
+  - grouping mutates files on disk
+  - renderer bypasses preload for privileged actions
+  - workspace state becomes canonical over live filesystem truth
+  - external rename corrupts the workspace
+  - watch flow leaks or loops badly
+
+manager_dispatch_template:
+  markdown: |
+    # Milestone
+    <name>
+
+    ## Goal
+    <what must be true when the milestone is complete>
+
+    ## Dependencies
+    - <dependency>
+    - <dependency>
+
+    ## Assigned agents
+    - <agent>: <responsibility>
+    - <agent>: <responsibility>
+
+    ## Shared contracts
+    - <types, events, or API names that are frozen>
+
+    ## Acceptance criteria
+    - [ ] <criterion>
+    - [ ] <criterion>
+
+    ## Risks
+    - <risk>
+    - <risk>
+
+    ## Required delivery format
+    1. Summary of work completed
+    2. Files created or edited
+    3. Interfaces exported or consumed
+    4. Assumptions
+    5. Edge cases handled
+    6. Known limitations
+
+agent_handoff_template:
+  markdown: |
+    ## Task
+    <task name>
+
+    ## Completed
+    <what was done>
+
+    ## Files changed
+    - path/to/file
+
+    ## Public interfaces
+    - function/type/event
+
+    ## Assumptions
+    - ...
+
+    ## Edge cases handled
+    - ...
+
+    ## Known limitations
+    - ...

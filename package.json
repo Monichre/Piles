@@ -1,0 +1,36 @@
+{
+  "name": "piles",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Piles desktop utility prototype",
+  "main": "dist-electron/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:main": "tsup src/main/main.ts src/preload/preload.ts --format cjs --out-dir dist-electron --target node20 --external electron --watch",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 file:dist-electron/main/main.js && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build": "npm run typecheck && npm run test && npm run build:renderer && npm run build:main",
+    "build:main": "tsup src/main/main.ts src/preload/preload.ts --format cjs --out-dir dist-electron --target node20 --external electron",
+    "build:renderer": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "concurrently": "^9.1.2",
+    "electron": "^36.4.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4",
+    "wait-on": "^8.0.3"
+  }
+}
