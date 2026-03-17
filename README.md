@@ -1,438 +1,150 @@
-Yeah—this is exactly the kind of thing that gets way clearer when you can see the system as a whole instead of reading fragments.
-
-I’m going to give you a clean visual mental model of:
-	1.	The system architecture
-	2.	Data flow
-	3.	Agent system
-	4.	Execution timeline
-	5.	Where things broke (your confusion)
-	6.	What “canonical” actually means in practice
-
-⸻
-
-🧠 1. The System (Big Picture)
-
-This is the core shape of Piles:
-
-                ┌──────────────────────────┐
-                │        FILESYSTEM        │
-                │  (Desktop / Downloads)  │
-                └────────────┬────────────┘
-                             │
-                             ▼
-                ┌──────────────────────────┐
-                │      MAIN PROCESS        │
-                │  (Electron / Node)       │
-                │                          │
-                │  - read files            │
-                │  - watch folder          │
-                │  - file actions          │
-                │  - persistence I/O       │
-                └────────────┬────────────┘
-                             │ IPC (preload)
-                             ▼
-                ┌──────────────────────────┐
-                │        RENDERER          │
-                │   (React + Canvas UI)   │
-                │                          │
-                │  - draw items            │
-                │  - piles/groups          │
-                │  - drag + select         │
-                │  - state (Zustand)       │
-                └────────────┬────────────┘
-                             │
-                             ▼
-                ┌──────────────────────────┐
-                │     PERSISTENCE LAYER    │
-                │   (JSON workspace file)  │
-                │                          │
-                │  - layout                │
-                │  - groups               │
-                │  - positions            │
-                └──────────────────────────┘
-
-
-⸻
-
-🔑 Key Insight
-
-There are two separate worlds:
-
-1. Real World (Filesystem)
-
-Files on disk
-- paths
-- names
-- existence
-
-2. Visual World (Your App)
+# Piles
 
-Positions
-Groups
-Layout
-UI state
-
-👉 These must NEVER be confused.
-
-That’s the #1 design principle.
-
-⸻
-
-🧱 2. Data Model (Clean Version)
-
-Here’s the correct mental split:
-
-        FILESYSTEM                        APP STATE
-    (comes from disk)                (comes from your app)
-
-   ┌───────────────┐               ┌────────────────────┐
-   │   FileMeta    │               │   ItemLayout       │
-   │───────────────│               │────────────────────│
-   │ path          │◄──────────────│ id (same as path)  │
-   │ name          │               │ position           │
-   │ type          │               │ groupId            │
-   │ dates         │               │ zIndex             │
-   └───────────────┘               └────────────────────┘
-
-                                        │
-                                        ▼
+Piles is an Electron desktop utility for visually organizing the direct
+contents of a single folder into spatial groups called piles without moving the
+underlying files on disk by default.
 
-                               ┌────────────────────┐
-                               │    GroupModel      │
-                               │────────────────────│
-                               │ id                 │
-                               │ name               │
-                               │ position/size      │
-                               │ itemIds[]          │
-                               └────────────────────┘
+## Current Status
 
+This repository is in active prototype development.
 
-⸻
+Implemented now:
 
-🔥 Why this matters
+- Electron + React + TypeScript app scaffold
+- Canonical shared contracts in code
+- Preload bridge and IPC registration
+- Filesystem service for folder selection, folder reads, and file actions
+- Persistence service for workspace load and save
+- Initial renderer shell
 
-This is where your earlier docs broke:
-	•	One version merged these → ❌ confusing
-	•	One version split them → ✅ correct
+Next planned work:
 
-👉 This split is now canonical.
+- Renderer store and workspace loading
+- Item rendering, selection, marquee, and drag behavior
+- Piles and membership flows
+- Folder watch, reconcile, and auto-group behavior
 
-⸻
+## Product Constraints
 
-🔌 3. IPC Contract (The “Bridge”)
+- Single-folder workspace only
+- Piles are virtual in MVP
+- Filesystem is the source of truth for live files
+- No AI grouping
+- No cloud sync
+- No Finder replacement
+- No hidden filesystem mutations
 
-This is how the UI talks to the system.
+## Architecture
 
-Renderer (React)
-       │
-       ▼
-window.pilesAPI.*
-       │
-       ▼
-Preload Bridge
-       │
-       ▼
-Main Process
-       │
-       ▼
-Filesystem / OS
+Main process:
 
-Canonical API
+- filesystem access
+- persistence
+- IPC handlers
+- OS-level file actions
 
-getFolderItems()
-loadWorkspace()
-saveWorkspace()
-openFile()
-renameFile()
-trashFile()
-watchFolder()
-onFolderChanged()
+Renderer:
 
+- React UI
+- workspace shell
+- canvas interactions
+- state management
 
-⸻
+Shared contracts:
 
-🧨 Where things broke before
+- `src/shared/types.ts`
+- `src/shared/ipc.ts`
 
-You had two competing APIs:
+## Canonical Model
 
-OLD ❌              NEW ✅
-getFiles            getFolderItems
-deleteFile          trashFile
-watchFolder:void    watchFolder + events
+The project uses a split model:
 
-That = guaranteed agent failure.
+- `FileMeta` for live filesystem metadata
+- `ItemLayout` for persisted visual layout
+- `GroupModel` for pile state
+- `WorkspaceData` for folder-specific app state
 
-⸻
+Rename behavior in MVP is path-based:
 
-🤖 4. Agent System (How Work Gets Done)
+- item identity is the file path
+- rename is treated as remove/add during reconciliation
+- workspace stability is required
+- exact identity continuity is not guaranteed
 
-Think of agents like a specialized assembly line:
+## Documentation Hierarchy
 
-        ┌──────────────┐
-        │   MANAGER    │
-        └──────┬───────┘
-               │
- ┌─────────────┼─────────────┐
- ▼             ▼             ▼
+Use this precedence order when artifacts disagree:
 
-Scaffold   Filesystem   Persistence
-   │             │             │
-   └──────┬──────┴──────┬──────┘
-          ▼             ▼
+1. `src/shared/types.ts`
+2. `src/shared/ipc.ts`
+3. [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md)
+4. [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md)
+5. [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml)
+6. [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md)
 
-        Canvas       Groups
-           │             │
-           └──────┬──────┘
-                  ▼
-                Sync
-                  │
-                  ▼
-                  QA
+Supporting docs:
 
+- [`AGENTS.md`](/Users/liamellis/Desktop/Piles/AGENTS.md): project-local agent
+  rules and authority order
+- [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md): product behavior and scope
+- [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md): canonical implementation
+  plan and execution order
+- [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml):
+  machine-readable mirror of the plan
+- [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md): live execution queue and
+  task status
 
-⸻
+## Getting Started
 
-🧠 Mental model
+Requirements:
 
-Each agent owns a layer of reality:
+- Node.js 23+
+- npm 10+
 
-Agent	Owns Reality
-Filesystem	disk
-Persistence	saved layout
-Canvas	pixels + interaction
-Groups	structure
-Sync	truth reconciliation
-QA	correctness
+Install dependencies:
 
+```bash
+npm install
+```
 
-⸻
+Run the app in development:
 
-⏱️ 5. Execution Timeline (Corrected)
+```bash
+npm run dev
+```
 
-This is the safe build order:
+Build the project:
 
-Phase 1: Foundation
--------------------
-Scaffold
-+ Shared types
+```bash
+npm run build
+```
 
-Phase 2: System Backbone
-------------------------
-Filesystem
-Persistence
+Run tests:
 
-Phase 3: UI Core
-----------------
-Canvas (render + drag)
+```bash
+npm test
+```
 
-Phase 4: Structure
-------------------
-Groups (piles)
+Run type checks:
 
-Phase 5: Reality Sync
----------------------
-Sync (watch + reconcile)
+```bash
+npm run typecheck
+```
 
-Phase 6: Validation
--------------------
-QA
+## Current Task Progress
 
+Complete:
 
-⸻
+- T-001 Scaffold app shell
+- T-002 Create canonical shared contracts in code
+- T-003 Add project-level agent instructions
+- T-004 Implement filesystem services
+- T-005 Implement persistence services
+- T-006 Wire preload bridge and IPC contract
 
-🧨 What went wrong before
+Next:
 
-You had this implied:
+- T-007 Build renderer store and workspace shell
+- T-008 Implement item rendering and movement
 
-Filesystem + Persistence + Scaffold all at once
-
-That’s like:
-
-“Let’s build the engine before defining what a bolt is.”
-
-⸻
-
-🔄 6. Data Flow (End-to-End)
-
-This is the full loop of the system:
-
-1. Load folder
-   ▼
-Main → getFolderItems()
-   ▼
-Renderer receives FileMeta[]
-
-2. Load saved layout
-   ▼
-Main → loadWorkspace()
-   ▼
-Renderer merges:
-   FileMeta + ItemLayout
-
-3. User interacts
-   ▼
-Drag item / create group
-   ▼
-Update Zustand store
-
-4. Persist
-   ▼
-saveWorkspace()
-
-5. External change
-   ▼
-Filesystem changes
-   ▼
-watchFolder → event
-   ▼
-Renderer resyncs
-
-
-⸻
-
-🔁 7. Rename Behavior (Critical Fix)
-
-This was a major contradiction.
-
-❌ Incorrect mental model
-
-File renamed → same identity
-
-✅ Correct MVP model
-
-File renamed:
-
-old/path.txt  →  removed
-new/path.txt  →  added
-
-So:
-
-Before:
-  ItemLayout[id="old/path.txt"]
-
-After:
-  ItemLayout may no longer match anything
-
-
-⸻
-
-🧠 What “survivable” means
-
-NOT:
-  perfect continuity
-
-YES:
-  app doesn’t break
-  layout mostly intact
-  no crashes
-
-
-⸻
-
-🧩 8. Why You Got Confused
-
-You were handed three overlapping abstractions:
-
-PRD (product logic)
-PLAN (architecture)
-MANIFEST (execution)
-
-But they were:
-
-NOT normalized
-NOT contract-aligned
-NOT hierarchically enforced
-
-So your brain tried to reconcile:
-
-Different APIs
-Different data models
-Different assumptions
-
-That’s not confusion—that’s bad system hygiene upstream.
-
-⸻
-
-🧠 9. What “Canonical” Actually Means
-
-This is the part most people miss.
-
-Canonical ≠ “well written”
-
-Canonical =
-
-There is exactly one source of truth per concept.
-
-⸻
-
-Your canonical hierarchy
-
-1. shared/types.ts        ← truth of data
-2. preload API types      ← truth of communication
-3. PRD.md                 ← truth of behavior
-4. AGENTS.md              ← truth of execution roles
-5. task-manifest.yaml     ← truth of sequencing
-
-
-⸻
-
-If anything conflicts:
-
-Types > Docs
-
-Always.
-
-⸻
-
-🎯 Final Mental Model
-
-If you remember nothing else, remember this:
-
-The entire system is just this loop:
-
-FILES (real)
-   ↓
-READ
-   ↓
-RENDER (visual)
-   ↓
-INTERACT
-   ↓
-SAVE (layout only)
-   ↓
-SYNC (when reality changes)
-
-That’s it.
-
-⸻
-
-🧭 Where you are right now
-
-You are at:
-
-"Pre-build normalization phase"
-
-Which is actually the most important phase if you’re using agents.
-
-Because:
-
-Bad contracts → exponential chaos
-Good contracts → linear progress
-
-⸻
-
-If you want next
-
-The next high-leverage move is:
-
-👉 I generate a fully normalized, production-ready repo skeleton with:
-	•	shared/types.ts
-	•	preload/api.ts
-	•	main/filesystem.ts
-	•	renderer/store.ts
-	•	minimal working canvas
-
-That turns all this from theory into something you can run.
-
-Just say:
-“generate repo skeleton”
+See [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md) for the full queue.
