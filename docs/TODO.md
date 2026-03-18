@@ -178,7 +178,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-007 Build renderer store and workspace shell
 
-- Status: pending
+- Status: complete
 - Owner: Canvas Agent
 - Depends on: T-006
 - Source of truth:
@@ -198,7 +198,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-008 Implement item rendering and movement
 
-- Status: pending
+- Status: complete
 - Owner: Canvas Agent
 - Depends on: T-007
 - Source of truth:
