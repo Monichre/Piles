@@ -245,7 +245,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-010 Wire file actions into the UI
 
-- Status: pending
+- Status: complete
 - Owner: Canvas Agent
 - Depends on: T-008, T-006
 - Source of truth:

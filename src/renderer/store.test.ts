@@ -500,6 +500,52 @@ describe("renameItem", () => {
 
     expect(renameFile).not.toHaveBeenCalled();
   });
+
+  it("recomputes FileMeta.extension when the extension changes", async () => {
+    const item = makeItem({
+      id: "/folder/report.txt",
+      path: "/folder/report.txt",
+      name: "report.txt",
+      extension: "txt",
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      renameFile: vi.fn().mockResolvedValue({ newPath: "/folder/report.md" }),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/report.txt", "report.md");
+
+    const updated = store.getState().items.find((i) => i.name === "report.md");
+    expect(updated).toBeDefined();
+    expect(updated!.extension).toBe("md");
+  });
+
+  it("sets FileMeta.extension to null when renamed to a name with no dot", async () => {
+    const item = makeItem({
+      id: "/folder/report.txt",
+      path: "/folder/report.txt",
+      name: "report.txt",
+      extension: "txt",
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      renameFile: vi.fn().mockResolvedValue({ newPath: "/folder/readme" }),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/report.txt", "readme");
+
+    const updated = store.getState().items.find((i) => i.name === "readme");
+    expect(updated).toBeDefined();
+    expect(updated!.extension).toBeNull();
+  });
 });
 
 describe("trashItem", () => {

@@ -194,9 +194,13 @@ export function createStore(api: PilesAPI) {
 
       const { newPath } = await api.renameFile(item.path, newName);
 
-      // 1. Update FileMeta in items: replace id, path, and name.
+      // 1. Update FileMeta in items: replace id, path, name, and extension.
+      const lastDot = newName.lastIndexOf(".");
+      const newExtension = lastDot > 0 ? newName.slice(lastDot + 1) : null;
       const nextItems = items.map((i) =>
-        i.id === id ? { ...i, id: newPath, path: newPath, name: newName } : i
+        i.id === id
+          ? { ...i, id: newPath, path: newPath, name: newName, extension: newExtension }
+          : i
       );
 
       // 2. Update itemLayouts: move entry from old id to newPath, update .id field.

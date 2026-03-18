@@ -162,18 +162,26 @@ export const CanvasItem = memo(function CanvasItem({
 
   // ── Inline rename ─────────────────────────────────────────────────────────
 
+  const renameInFlightRef = useRef(false);
+
   const startEditing = useCallback(() => {
     setDraftName(item.name);
     setEditing(true);
   }, [item.name]);
 
   const commitRename = useCallback(async () => {
-    setEditing(false);
+    if (renameInFlightRef.current) return;
     const trimmed = draftName.trim();
-    if (trimmed && trimmed !== item.name && onRename) {
-      await onRename(item.id, trimmed);
-    } else {
-      setDraftName(item.name);
+    if (!trimmed || trimmed === item.name) {
+      setEditing(false);
+      return;
+    }
+    renameInFlightRef.current = true;
+    try {
+      await onRename?.(item.id, trimmed);
+    } finally {
+      renameInFlightRef.current = false;
+      setEditing(false);
     }
   }, [draftName, item.id, item.name, onRename]);
 
