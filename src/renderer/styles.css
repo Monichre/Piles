@@ -109,3 +109,141 @@ code {
     border-radius: 18px;
   }
 }
+
+/* ─── Workspace Shell ──────────────────────────────────────────────────── */
+
+.ws-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Centred prompt layout (idle / error / empty) */
+.ws-shell--idle,
+.ws-shell--error,
+.ws-shell--empty {
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.ws-prompt {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ws-prompt h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.ws-eyebrow--error {
+  color: #ff7b7b;
+}
+
+/* Loading state */
+.ws-shell--loading {
+  align-items: center;
+  justify-content: center;
+}
+
+.ws-status-label {
+  color: rgba(247, 248, 251, 0.6);
+  font-size: 0.95rem;
+}
+
+/* Canvas state */
+.ws-shell--canvas {
+  overflow: hidden;
+}
+
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.82rem;
+  color: rgba(247, 248, 251, 0.6);
+  flex-shrink: 0;
+}
+
+.ws-folder-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.78rem;
+}
+
+.ws-item-count {
+  white-space: nowrap;
+}
+
+.ws-canvas {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  position: relative;
+}
+
+/* Placeholder item list (Wave 3 will replace with positioned tiles) */
+.ws-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+}
+
+.ws-item--folder {
+  border-color: rgba(142, 203, 255, 0.2);
+}
+
+.ws-item-ext {
+  color: rgba(247, 248, 251, 0.4);
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+}
+
+/* Buttons */
+.ws-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f7f8fb;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 120ms ease;
+  white-space: nowrap;
+}
+
+.ws-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ws-btn--primary {
+  background: #3b82f6;
+  border-color: transparent;
+}
+
+.ws-btn--primary:hover {
+  background: #2563eb;
+}
