@@ -5,16 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
+npm install          # install deps
 npm run dev          # Start all three processes concurrently (main, renderer, electron)
 npm test             # Run vitest tests
 npm run typecheck    # tsc --noEmit
 npm run build        # typecheck + test + build renderer + build main
 ```
 
+Prereq: Node.js 20+
+
 To run a single test file:
 ```bash
 npx vitest run src/main/filesystem-service.test.ts
 ```
+
+## Docs
+
+- `AGENTS.md` — authority order + hard rules (follow when artifacts disagree)
+- `docs/RUNBOOK.md` — common issues, cleanup, diagnostics
+- `docs/TODO.md` — active execution queue / wave order
 
 ## Architecture
 

@@ -221,7 +221,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-009 Implement piles and membership flow
 
-- Status: pending
+- Status: complete
 - Owner: Groups Agent
 - Depends on: T-008
 - Source of truth:

@@ -170,6 +170,23 @@ export function createStore(api: PilesAPI) {
         itemIds: [...itemIds],
       };
 
+      // Remove seeded items from any group they currently belong to so that
+      // each item can only be in one group at a time (Issue 6: without this,
+      // the old group's itemIds array still referenced the item even though
+      // itemLayouts[itemId].groupId pointed to the new group).
+      const updatedGroups: Record<string, GroupModel> = { ...workspace.groups };
+      for (const itemId of itemIds) {
+        const oldGroupId = workspace.itemLayouts[itemId]?.groupId;
+        if (oldGroupId && updatedGroups[oldGroupId]) {
+          updatedGroups[oldGroupId] = {
+            ...updatedGroups[oldGroupId],
+            itemIds: updatedGroups[oldGroupId].itemIds.filter((i) => i !== itemId),
+          };
+        }
+      }
+      // Add the new group.
+      updatedGroups[id] = group;
+
       // Update itemLayouts so each member item's groupId is set.
       const nextLayouts = { ...workspace.itemLayouts };
       for (const itemId of itemIds) {
@@ -182,7 +199,7 @@ export function createStore(api: PilesAPI) {
       set({
         workspace: {
           ...workspace,
-          groups: { ...workspace.groups, [id]: group },
+          groups: updatedGroups,
           itemLayouts: nextLayouts,
         },
       });

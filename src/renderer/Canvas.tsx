@@ -224,22 +224,35 @@ export function Canvas() {
         const dropPoint = toCanvasPoint(e, canvasEl);
         const result = drag.endDrag();
         if (result) {
-          // Determine if items were dropped on a pile.
+          // Determine if items were dropped on a pile BEFORE writing positions.
           const targetGroupId = hitTestGroups(dropPoint, groups);
 
-          // Build the layout updates for all dragged items.
+          // Build the layout updates for all dragged items. Include the correct
+          // post-drop groupId in the same update so updateItemLayouts and the
+          // group membership calls use consistent state (Issue 2: previously
+          // groupId was written with the stale pre-drop value here, then
+          // overwritten by a second set() in addItemToGroup/removeItemFromGroup,
+          // causing two renders with inconsistent state).
           const updates: Record<string, Partial<ItemLayout>> = {};
           for (const [id, position] of Object.entries(result.positions)) {
+            let newGroupId: string | null;
+            if (targetGroupId) {
+              newGroupId = targetGroupId;
+            } else {
+              // Dropped on canvas — remove from any group.
+              newGroupId = null;
+            }
             updates[id] = {
               id,
               position,
-              groupId: itemLayouts[id]?.groupId ?? null,
+              groupId: newGroupId,
               zIndex: result.newZIndex,
             };
           }
           updateItemLayouts(updates);
 
-          // Apply group membership changes based on drop target.
+          // Update the GroupModel.itemIds arrays to stay consistent with the
+          // groupId we already wrote above.
           if (targetGroupId) {
             for (const id of Object.keys(result.positions)) {
               addItemToGroup(id, targetGroupId);
@@ -323,15 +336,20 @@ export function Canvas() {
   const handlePileMove = useCallback(
     (groupId: string, newPosition: Point) => {
       updateGroup(groupId, { position: newPosition });
+      // Persist on every move event so position survives app close mid-drag.
+      // This fires on every pointermove; acceptable for now.
+      void saveWorkspace();
     },
-    [updateGroup]
+    [updateGroup, saveWorkspace]
   );
 
   const handlePileResize = useCallback(
     (groupId: string, newSize: { width: number; height: number }) => {
       updateGroup(groupId, { size: newSize });
+      // Persist on every resize event so size survives app close mid-drag.
+      void saveWorkspace();
     },
-    [updateGroup]
+    [updateGroup, saveWorkspace]
   );
 
   const handlePileRename = useCallback(
@@ -414,7 +432,11 @@ export function Canvas() {
               key={group.id}
               group={group}
               members={members}
+              // TODO: GroupModel has no zIndex field; stacking order is
+              // determined by insertion order. Add a zIndex field to GroupModel
+              // and a "bring to front" action to support user-controlled ordering.
               zIndex={PILE_BASE_Z + idx}
+              canvasEl={canvasRef.current}
               onMove={handlePileMove}
               onResize={handlePileResize}
               onRename={handlePileRename}

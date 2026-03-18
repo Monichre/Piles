@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type PointerEvent } from "react";
+import { memo, useCallback, type CSSProperties, type PointerEvent } from "react";
 
 import type { FileMeta, Point } from "../shared/types";
 
@@ -43,9 +43,12 @@ export const CanvasItem = memo(function CanvasItem({
     userSelect: "none",
   };
 
-  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    onPointerDown(e, item.id);
-  };
+  const handlePointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      onPointerDown(e, item.id);
+    },
+    [onPointerDown, item.id]
+  );
 
   return (
     <div

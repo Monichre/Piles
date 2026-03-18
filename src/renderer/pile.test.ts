@@ -102,6 +102,25 @@ describe("createGroup", () => {
     expect(store.getState().workspace).toBeNull();
   });
 
+  it("createGroup removes items from their existing group", async () => {
+    const item = makeItem({ id: "/folder/x.txt" });
+    const store = await makeLoadedStore({}, [item]);
+
+    // Create group A with item X.
+    const groupA = store.getState().createGroup("A", ["/folder/x.txt"], { x: 0, y: 0 });
+    expect(store.getState().workspace!.groups[groupA].itemIds).toContain("/folder/x.txt");
+
+    // Create group B also seeded with item X.
+    const groupB = store.getState().createGroup("B", ["/folder/x.txt"], { x: 200, y: 0 });
+
+    // Group A must no longer contain the item.
+    expect(store.getState().workspace!.groups[groupA].itemIds).not.toContain("/folder/x.txt");
+    // Group B must contain the item.
+    expect(store.getState().workspace!.groups[groupB].itemIds).toContain("/folder/x.txt");
+    // itemLayouts reflects the final group.
+    expect(store.getState().workspace!.itemLayouts["/folder/x.txt"]?.groupId).toBe(groupB);
+  });
+
   it("does NOT merge FileMeta into the group record", async () => {
     const item = makeItem({ id: "/folder/a.txt" });
     const store = await makeLoadedStore({}, [item]);

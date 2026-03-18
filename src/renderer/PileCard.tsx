@@ -1,6 +1,7 @@
 import React, {
   memo,
   useCallback,
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -27,6 +28,12 @@ export interface PileCardProps {
   onItemPointerDown: (e: PointerEvent<HTMLDivElement>, itemId: string) => void;
   /** Base z-index for the pile background layer. */
   zIndex?: number;
+  /**
+   * Reference to the scrollable canvas container element. Used to compute
+   * canvas-relative pointer positions during header drag, consistent with
+   * how Canvas.tsx handles item drag via toCanvasPoint().
+   */
+  canvasEl: HTMLDivElement | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,11 +64,20 @@ export const PileCard = memo(function PileCard({
   onDelete,
   onItemPointerDown,
   zIndex = 0,
+  canvasEl,
 }: PileCardProps) {
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
 
-  // Drag-to-move state (header drag)
+  // Issue 1: sync draftName when the group name changes externally (e.g. undo
+  // or remote update), but only when the input is not currently being edited.
+  useEffect(() => {
+    if (!editing) setDraftName(group.name);
+  }, [group.name, editing]);
+
+  // Drag-to-move state (header drag).
+  // startPointer is stored as a canvas-relative point (matching toCanvasPoint()
+  // used in Canvas.tsx for item drag) so scroll offsets are handled correctly.
   const moveDragRef = useRef<{
     startPointer: Point;
     startPos: Point;
@@ -109,23 +125,47 @@ export const PileCard = memo(function PileCard({
       if (editing) return; // let the input handle its own events
       e.stopPropagation();
       (e.target as Element).setPointerCapture(e.pointerId);
+      // Compute canvas-relative start position using getBoundingClientRect() +
+      // scrollLeft/scrollTop, consistent with toCanvasPoint() in Canvas.tsx.
+      let startPointer: Point;
+      if (canvasEl) {
+        const rect = canvasEl.getBoundingClientRect();
+        startPointer = {
+          x: e.clientX - rect.left + canvasEl.scrollLeft,
+          y: e.clientY - rect.top + canvasEl.scrollTop,
+        };
+      } else {
+        // Fallback: raw client coords (correct when there is no scroll offset).
+        startPointer = { x: e.clientX, y: e.clientY };
+      }
       moveDragRef.current = {
-        startPointer: { x: e.clientX, y: e.clientY },
+        startPointer,
         startPos: { ...group.position },
       };
     },
-    [editing, group.position]
+    [editing, group.position, canvasEl]
   );
 
   const handleHeaderPointerMove = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       const s = moveDragRef.current;
       if (!s) return;
-      const dx = e.clientX - s.startPointer.x;
-      const dy = e.clientY - s.startPointer.y;
+      // Compute canvas-relative current pointer position.
+      let currentPointer: Point;
+      if (canvasEl) {
+        const rect = canvasEl.getBoundingClientRect();
+        currentPointer = {
+          x: e.clientX - rect.left + canvasEl.scrollLeft,
+          y: e.clientY - rect.top + canvasEl.scrollTop,
+        };
+      } else {
+        currentPointer = { x: e.clientX, y: e.clientY };
+      }
+      const dx = currentPointer.x - s.startPointer.x;
+      const dy = currentPointer.y - s.startPointer.y;
       onMove(group.id, { x: s.startPos.x + dx, y: s.startPos.y + dy });
     },
-    [group.id, onMove]
+    [group.id, onMove, canvasEl]
   );
 
   const handleHeaderPointerUp = useCallback(() => {

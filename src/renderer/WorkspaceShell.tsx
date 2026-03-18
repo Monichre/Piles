@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useStore } from "zustand";
 
-import type { GroupModel, ItemLayout } from "../shared/types";
 import { Canvas } from "./Canvas";
 import { getStore } from "./store";
 
@@ -25,16 +24,8 @@ export function WorkspaceShell() {
   const openFolder = useStore(store, (s) => s.openFolder);
   const createGroup = useStore(store, (s) => s.createGroup);
   const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
-  const itemLayouts = useStore(
-    store,
-    (s) => s.workspace?.itemLayouts ?? ({} as Record<string, ItemLayout>)
-  );
-  const groups = useStore(
-    store,
-    (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>)
-  );
 
-  // ── Pile creation handlers ─────────────────────────────────────────────────
+  // ── Pile creation handler ──────────────────────────────────────────────────
 
   const handleNewPile = useCallback(() => {
     // Place new empty pile in a visible default position.
@@ -42,19 +33,10 @@ export function WorkspaceShell() {
     void saveWorkspace();
   }, [createGroup, saveWorkspace]);
 
-  // No selectedIds access here — selection lives in Canvas; we expose a
-  // toolbar action that Canvas can use. For now, "Group selection" is wired
-  // through a data-attribute approach: read items whose groupId is null as a
-  // rough proxy. A cleaner approach would lift selection to the store, but
-  // the task spec does not require that architectural change.
-  // Instead, we just create an empty pile and let the user drag items in.
-  const handleGroupSelection = useCallback(() => {
-    // Compute a sensible default position from existing groups count.
-    const groupCount = Object.keys(groups).length;
-    const offset = groupCount * 20;
-    createGroup("Pile", [], { x: 60 + offset, y: 60 + offset });
-    void saveWorkspace();
-  }, [createGroup, groups, saveWorkspace]);
+  // TODO: A "Group selection" button that seeds the pile with selected items
+  // requires access to selection state, which lives in Canvas. Either lift
+  // selection into the store or add a toolbar overlay inside Canvas.tsx once
+  // that is needed.
 
   // ── Idle ──────────────────────────────────────────────────────────────────
   if (status === "idle") {
@@ -134,9 +116,6 @@ export function WorkspaceShell() {
         </span>
         <button className="ws-btn" onClick={handleNewPile} title="Create an empty pile">
           New pile
-        </button>
-        <button className="ws-btn" onClick={handleGroupSelection} title="Create a pile (drag items in)">
-          + Pile
         </button>
         <button className="ws-btn" onClick={openFolder}>
           Change folder
