@@ -6,10 +6,10 @@ Use this precedence order when artifacts disagree:
 
 1. `src/shared/types.ts`
 2. `src/shared/ipc.ts`
-3. `PRD.md`
-4. `PLAN.md`
-5. `task-manifest.yml`
-6. `TODO.md`
+3. `docs/PRD.md`
+4. `docs/PLAN.md`
+5. `docs/task-manifest.yml`
+6. `docs/TODO.md`
 
 If code contracts and docs diverge, update the docs to match the code
 contracts immediately.
@@ -46,7 +46,7 @@ QA should validate survivability, not identity preservation.
 
 ## Execution Order
 
-Follow the queue in `TODO.md`.
+Follow the queue in `docs/TODO.md`.
 
 - Wave 1: scaffold and contracts
 - Wave 2: filesystem and persistence

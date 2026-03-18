@@ -15,11 +15,11 @@ It defines:
 
 Document ownership:
 
-- [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md) owns product behavior and
+- [`docs/PRD.md`](./PRD.md) owns product behavior and
   scope
-- [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md) owns implementation
+- [`docs/PLAN.md`](./PLAN.md) owns implementation
   contracts and sequencing
-- [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml) is the
+- [`docs/task-manifest.yml`](./task-manifest.yml) is the
   machine-readable mirror of this plan
 
 If future code files such as `shared/types.ts` or preload API type definitions
@@ -458,7 +458,7 @@ Acceptance:
 
 ### Document consistency checks
 
-- `task-manifest.yml` parses as YAML
+- `docs/task-manifest.yml` parses as YAML
 - Contract names match across planning artifacts
 - Rename policy is stated once and stated consistently
 - The split model is used everywhere

@@ -77,22 +77,18 @@ Use this precedence order when artifacts disagree:
 
 1. `src/shared/types.ts`
 2. `src/shared/ipc.ts`
-3. [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md)
-4. [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md)
-5. [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml)
-6. [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md)
+3. [`docs/PRD.md`](docs/PRD.md)
+4. [`docs/PLAN.md`](docs/PLAN.md)
+5. [`docs/task-manifest.yml`](docs/task-manifest.yml)
+6. [`docs/TODO.md`](docs/TODO.md)
 
 Supporting docs:
 
-- [`AGENTS.md`](/Users/liamellis/Desktop/Piles/AGENTS.md): project-local agent
-  rules and authority order
-- [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md): product behavior and scope
-- [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md): canonical implementation
-  plan and execution order
-- [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml):
-  machine-readable mirror of the plan
-- [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md): live execution queue and
-  task status
+- [`AGENTS.md`](AGENTS.md): project-local agent rules and authority order
+- [`docs/PRD.md`](docs/PRD.md): product behavior and scope
+- [`docs/PLAN.md`](docs/PLAN.md): canonical implementation plan and execution order
+- [`docs/task-manifest.yml`](docs/task-manifest.yml): machine-readable mirror of the plan
+- [`docs/TODO.md`](docs/TODO.md): live execution queue and task status
 
 ## Getting Started
 
@@ -147,4 +143,4 @@ Next:
 - T-007 Build renderer store and workspace shell
 - T-008 Implement item rendering and movement
 
-See [`TODO.md`](/Users/liamellis/Desktop/Piles/TODO.md) for the full queue.
+See [`docs/TODO.md`](docs/TODO.md) for the full queue.

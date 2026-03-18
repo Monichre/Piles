@@ -180,7 +180,7 @@ Use a split model only:
 - `WorkspaceData` stores groups, item layouts, and settings for one folder
 
 This product document does not define the type signatures directly.
-[`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md) is the canonical source for
+[`docs/PLAN.md`](./PLAN.md) is the canonical source for
 shared type definitions and preload contract definitions.
 
 ### Rename semantics
@@ -254,9 +254,9 @@ Kill or pivot if:
 
 ## 10. Document Authority
 
-- [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md) is the canonical product
+- [`docs/PRD.md`](./PRD.md) is the canonical product
   behavior document.
-- [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md) is the canonical
+- [`docs/PLAN.md`](./PLAN.md) is the canonical
   implementation and orchestration document.
-- [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml) is the
+- [`docs/task-manifest.yml`](./task-manifest.yml) is the
   machine-readable mirror of the canonical implementation plan.

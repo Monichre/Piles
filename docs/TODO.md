@@ -2,9 +2,9 @@
 
 This queue is derived from:
 
-- [`PRD.md`](/Users/liamellis/Desktop/Piles/PRD.md)
-- [`PLAN.md`](/Users/liamellis/Desktop/Piles/PLAN.md)
-- [`task-manifest.yml`](/Users/liamellis/Desktop/Piles/task-manifest.yml)
+- [`docs/PRD.md`](./PRD.md)
+- [`docs/PLAN.md`](./PLAN.md)
+- [`docs/task-manifest.yml`](./task-manifest.yml)
 
 It is intended for `subagent-driven-development`.
 
@@ -105,7 +105,7 @@ It is intended for `subagent-driven-development`.
   - state that agents must follow wave order and must not invent alternate
     models or API names
 - Deliverables:
-  - `/Users/liamellis/Desktop/Piles/AGENTS.md`
+  - `../AGENTS.md`
 - Acceptance:
   - local agent rules exist in repo
   - authority order is explicit
