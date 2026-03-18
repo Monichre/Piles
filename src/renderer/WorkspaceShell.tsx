@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useStore } from "zustand";
 
+import { Canvas } from "./Canvas";
 import { getStore } from "./store";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,6 @@ export function WorkspaceShell() {
   const folderPath = useStore(store, (s) => s.folderPath);
   // Accessed separately — never merged with ItemLayout.
   const items = useStore(store, (s) => s.items);
-  const itemLayouts = useStore(store, (s) => s.workspace?.itemLayouts ?? null);
   const openFolder = useStore(store, (s) => s.openFolder);
 
   // ── Idle ──────────────────────────────────────────────────────────────────
@@ -88,9 +88,7 @@ export function WorkspaceShell() {
     );
   }
 
-  // ── Loaded — canvas placeholder ───────────────────────────────────────────
-  // itemLayouts accessed separately from items (split model enforcement).
-  const layoutCount = itemLayouts ? Object.keys(itemLayouts).length : 0;
+  // ── Loaded — canvas ───────────────────────────────────────────────────────
 
   return (
     <main className="ws-shell ws-shell--canvas">
@@ -100,34 +98,13 @@ export function WorkspaceShell() {
         </span>
         <span className="ws-item-count" aria-label={`${items.length} items`}>
           {items.length} {items.length === 1 ? "item" : "items"}
-          {layoutCount > 0 && ` · ${layoutCount} positioned`}
         </span>
         <button className="ws-btn" onClick={openFolder}>
           Change folder
         </button>
       </header>
 
-      {/* Canvas placeholder — Wave 3 will render real item tiles here. */}
-      <div className="ws-canvas" aria-label="Workspace canvas">
-        <ul className="ws-item-list" aria-label="File list">
-          {items.map((item) => {
-            // ItemLayout accessed separately — only by id lookup, never merged.
-            const layout = itemLayouts?.[item.id] ?? null;
-            return (
-              <li
-                key={item.id}
-                className={`ws-item ws-item--${item.kind}`}
-                data-has-layout={layout !== null}
-              >
-                <span className="ws-item-name">{item.name}</span>
-                {item.extension && (
-                  <span className="ws-item-ext">.{item.extension}</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <Canvas />
     </main>
   );
 }

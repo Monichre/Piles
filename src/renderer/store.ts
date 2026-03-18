@@ -1,7 +1,7 @@
 import { createStore as createZustandStore } from "zustand";
 
 import type { PilesAPI } from "../shared/ipc";
-import type { FileMeta, WorkspaceData } from "../shared/types";
+import type { FileMeta, ItemLayout, WorkspaceData } from "../shared/types";
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -26,6 +26,10 @@ export interface PilesActions {
   loadFolder: (path: string) => Promise<void>;
   /** Persist the current workspace through the preload bridge. */
   saveWorkspace: () => Promise<void>;
+  /** Update a single item layout, creating it if it doesn't exist. */
+  updateItemLayout: (id: string, patch: Partial<ItemLayout>) => void;
+  /** Batch-update multiple item layouts, creating missing entries. */
+  updateItemLayouts: (updates: Record<string, Partial<ItemLayout>>) => void;
 }
 
 export type PilesStore = PilesState & PilesActions;
@@ -95,6 +99,39 @@ export function createStore(api: PilesAPI) {
       const { workspace } = get();
       if (workspace === null) return;
       await api.saveWorkspace(workspace);
+    },
+
+    updateItemLayout: (id, patch) => {
+      const { workspace } = get();
+      if (!workspace) return;
+      const existing: ItemLayout = workspace.itemLayouts[id] ?? {
+        id,
+        position: { x: 0, y: 0 },
+        groupId: null,
+        zIndex: 0,
+      };
+      set({
+        workspace: {
+          ...workspace,
+          itemLayouts: {
+            ...workspace.itemLayouts,
+            [id]: { ...existing, ...patch },
+          },
+        },
+      });
+    },
+
+    updateItemLayouts: (updates) => {
+      const { workspace } = get();
+      if (!workspace) return;
+      const next = { ...workspace.itemLayouts };
+      for (const [id, patch] of Object.entries(updates)) {
+        next[id] = {
+          ...(next[id] ?? { id, position: { x: 0, y: 0 }, groupId: null, zIndex: 0 }),
+          ...patch,
+        };
+      }
+      set({ workspace: { ...workspace, itemLayouts: next } });
     },
   }));
 }

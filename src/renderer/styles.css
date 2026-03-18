@@ -161,6 +161,76 @@ code {
   font-size: 0.72rem;
 }
 
+/* ─── Canvas ───────────────────────────────────────────────────────────── */
+
+.canvas-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.canvas-surface {
+  position: relative;
+}
+
+/* ─── Canvas Item ──────────────────────────────────────────────────────── */
+
+.ci {
+  position: absolute;
+  width: 96px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: default;
+  user-select: none;
+  transition: background 80ms ease, border-color 80ms ease;
+}
+
+.ci:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.ci--selected {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.7);
+  outline: none;
+}
+
+.ci--folder {
+  border-color: rgba(142, 203, 255, 0.2);
+}
+
+.ci--folder.ci--selected {
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.ci-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ci-name {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-all;
+  color: rgba(247, 248, 251, 0.9);
+  max-width: 100%;
+}
+
 /* Buttons */
 .ws-btn {
   padding: 8px 16px;

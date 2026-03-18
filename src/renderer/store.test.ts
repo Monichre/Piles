@@ -249,6 +249,132 @@ describe("openFolder", () => {
   });
 });
 
+describe("updateItemLayout", () => {
+  it("creates a new layout entry when the id doesn't exist yet", async () => {
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([makeItem()]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+    });
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+
+    store.getState().updateItemLayout("new-item", { position: { x: 50, y: 75 } });
+
+    const layout = store.getState().workspace!.itemLayouts["new-item"];
+    expect(layout).toBeDefined();
+    expect(layout.id).toBe("new-item");
+    expect(layout.position).toEqual({ x: 50, y: 75 });
+    expect(layout.groupId).toBeNull();
+    expect(layout.zIndex).toBe(0);
+  });
+
+  it("merges patch onto an existing layout entry", async () => {
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "a": { id: "a", position: { x: 10, y: 20 }, groupId: null, zIndex: 2 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+    });
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+
+    store.getState().updateItemLayout("a", { position: { x: 100, y: 200 } });
+
+    const layout = store.getState().workspace!.itemLayouts["a"];
+    expect(layout.position).toEqual({ x: 100, y: 200 });
+    // zIndex preserved from existing entry
+    expect(layout.zIndex).toBe(2);
+    expect(layout.groupId).toBeNull();
+  });
+
+  it("does nothing when workspace is null", () => {
+    const store = createStore(makeMockApi());
+    // workspace is null (idle state)
+    expect(() => {
+      store.getState().updateItemLayout("x", { position: { x: 0, y: 0 } });
+    }).not.toThrow();
+    expect(store.getState().workspace).toBeNull();
+  });
+});
+
+describe("updateItemLayouts", () => {
+  it("batch-creates multiple layout entries that don't exist", async () => {
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+    });
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+
+    store.getState().updateItemLayouts({
+      "x": { id: "x", position: { x: 10, y: 20 }, zIndex: 5 },
+      "y": { id: "y", position: { x: 30, y: 40 }, zIndex: 5 },
+    });
+
+    const layouts = store.getState().workspace!.itemLayouts;
+    expect(layouts["x"].position).toEqual({ x: 10, y: 20 });
+    expect(layouts["x"].zIndex).toBe(5);
+    expect(layouts["x"].groupId).toBeNull();
+    expect(layouts["y"].position).toEqual({ x: 30, y: 40 });
+  });
+
+  it("merges patches onto existing entries and preserves untouched entries", async () => {
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "a": { id: "a", position: { x: 10, y: 20 }, groupId: null, zIndex: 1 },
+        "b": { id: "b", position: { x: 50, y: 60 }, groupId: null, zIndex: 1 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+    });
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+
+    // Only update "a"; "b" should be untouched
+    store.getState().updateItemLayouts({
+      "a": { position: { x: 999, y: 888 }, zIndex: 3 },
+    });
+
+    const layouts = store.getState().workspace!.itemLayouts;
+    expect(layouts["a"].position).toEqual({ x: 999, y: 888 });
+    expect(layouts["a"].zIndex).toBe(3);
+    // "b" unchanged
+    expect(layouts["b"].position).toEqual({ x: 50, y: 60 });
+    expect(layouts["b"].zIndex).toBe(1);
+  });
+
+  it("does nothing when workspace is null", () => {
+    const store = createStore(makeMockApi());
+    expect(() => {
+      store.getState().updateItemLayouts({ "x": { position: { x: 0, y: 0 } } });
+    }).not.toThrow();
+    expect(store.getState().workspace).toBeNull();
+  });
+
+  it("does not merge FileMeta into ItemLayout during batch update", async () => {
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+    });
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+
+    store.getState().updateItemLayouts({
+      "z": { id: "z", position: { x: 5, y: 5 }, zIndex: 0 },
+    });
+
+    const layout = store.getState().workspace!.itemLayouts["z"];
+    expect(layout).not.toHaveProperty("name");
+    expect(layout).not.toHaveProperty("extension");
+    expect(layout).not.toHaveProperty("kind");
+  });
+});
+
 describe("saveWorkspace", () => {
   it("calls api.saveWorkspace with the current workspace", async () => {
     const workspace = makeWorkspace();
