@@ -393,3 +393,63 @@ code {
 .pile-resize:hover {
   opacity: 0.9;
 }
+
+/* ─── Canvas Item — inline rename input ────────────────────────────────── */
+
+.ci-name--editing {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(142, 203, 255, 0.5);
+  border-radius: 4px;
+  color: #f7f8fb;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  outline: none;
+  text-align: center;
+  cursor: text;
+}
+
+/* ─── Context Menu ─────────────────────────────────────────────────────── */
+
+.ctx-menu {
+  min-width: 160px;
+  padding: 4px 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1c1e23;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+.ctx-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: rgba(247, 248, 251, 0.88);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 80ms ease;
+}
+
+.ctx-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ctx-menu-item--danger {
+  color: #ff7b7b;
+}
+
+.ctx-menu-item--danger:hover {
+  background: rgba(255, 123, 123, 0.1);
+}
+
+.ctx-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.08);
+}

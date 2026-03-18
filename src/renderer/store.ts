@@ -31,6 +31,23 @@ export interface PilesActions {
   /** Batch-update multiple item layouts, creating missing entries. */
   updateItemLayouts: (updates: Record<string, Partial<ItemLayout>>) => void;
 
+  // ── File actions ──────────────────────────────────────────────────────────
+  /** Open the file or folder in the default application / Finder. */
+  openItem: (id: string) => Promise<void>;
+  /** Reveal the item in Finder without opening it. */
+  revealItem: (id: string) => Promise<void>;
+  /**
+   * Rename the file on disk and update all in-memory state atomically.
+   * Path-based identity: id, path, and name all change; ItemLayout key moves
+   * to the new path; GroupModel.itemIds are updated; workspace is saved.
+   */
+  renameItem: (id: string, newName: string) => Promise<void>;
+  /**
+   * Move the file to Trash, remove it from items, itemLayouts, and any
+   * GroupModel.itemIds, and persist the workspace.
+   */
+  trashItem: (id: string) => Promise<void>;
+
   // ── Pile (Group) actions ─────────────────────────────────────────────────
   /**
    * Create a new group with the given name, initial member item IDs, and
@@ -152,6 +169,100 @@ export function createStore(api: PilesAPI) {
         };
       }
       set({ workspace: { ...workspace, itemLayouts: next } });
+    },
+
+    // ── File actions ───────────────────────────────────────────────────────
+
+    openItem: async (id) => {
+      const { items } = get();
+      const item = items.find((i) => i.id === id);
+      if (!item) return;
+      await api.openFile(item.path);
+    },
+
+    revealItem: async (id) => {
+      const { items } = get();
+      const item = items.find((i) => i.id === id);
+      if (!item) return;
+      await api.revealInFinder(item.path);
+    },
+
+    renameItem: async (id, newName) => {
+      const { items, workspace } = get();
+      const item = items.find((i) => i.id === id);
+      if (!item || !workspace) return;
+
+      const { newPath } = await api.renameFile(item.path, newName);
+
+      // 1. Update FileMeta in items: replace id, path, and name.
+      const nextItems = items.map((i) =>
+        i.id === id ? { ...i, id: newPath, path: newPath, name: newName } : i
+      );
+
+      // 2. Update itemLayouts: move entry from old id to newPath, update .id field.
+      const oldLayout = workspace.itemLayouts[id];
+      const nextLayouts = { ...workspace.itemLayouts };
+      if (oldLayout) {
+        delete nextLayouts[id];
+        nextLayouts[newPath] = { ...oldLayout, id: newPath };
+      }
+
+      // 3. Update GroupModel.itemIds: replace old id with newPath in every group.
+      const nextGroups: Record<string, GroupModel> = {};
+      for (const [gid, group] of Object.entries(workspace.groups)) {
+        nextGroups[gid] = {
+          ...group,
+          itemIds: group.itemIds.map((iid) => (iid === id ? newPath : iid)),
+        };
+      }
+
+      set({
+        items: nextItems,
+        workspace: {
+          ...workspace,
+          itemLayouts: nextLayouts,
+          groups: nextGroups,
+        },
+      });
+
+      // 4. Persist.
+      await get().saveWorkspace();
+    },
+
+    trashItem: async (id) => {
+      const { items, workspace } = get();
+      const item = items.find((i) => i.id === id);
+      if (!item || !workspace) return;
+
+      await api.trashFile(item.path);
+
+      // 1. Remove from items.
+      const nextItems = items.filter((i) => i.id !== id);
+
+      // 2. Remove from itemLayouts.
+      const nextLayouts = { ...workspace.itemLayouts };
+      delete nextLayouts[id];
+
+      // 3. Remove from GroupModel.itemIds in every group.
+      const nextGroups: Record<string, GroupModel> = {};
+      for (const [gid, group] of Object.entries(workspace.groups)) {
+        nextGroups[gid] = {
+          ...group,
+          itemIds: group.itemIds.filter((iid) => iid !== id),
+        };
+      }
+
+      set({
+        items: nextItems,
+        workspace: {
+          ...workspace,
+          itemLayouts: nextLayouts,
+          groups: nextGroups,
+        },
+      });
+
+      // 4. Persist.
+      await get().saveWorkspace();
     },
 
     // ── Pile (Group) actions ───────────────────────────────────────────────

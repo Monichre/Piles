@@ -375,6 +375,274 @@ describe("updateItemLayouts", () => {
   });
 });
 
+describe("renameItem", () => {
+  it("updates FileMeta id, path, and name in items", async () => {
+    const item = makeItem({ id: "/folder/old.txt", path: "/folder/old.txt", name: "old.txt" });
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "/folder/old.txt": { id: "/folder/old.txt", position: { x: 10, y: 20 }, groupId: null, zIndex: 1 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      renameFile: vi.fn().mockResolvedValue({ newPath: "/folder/new.txt" }),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/old.txt", "new.txt");
+
+    const state = store.getState();
+    const updatedItem = state.items.find((i) => i.name === "new.txt");
+    expect(updatedItem).toBeDefined();
+    expect(updatedItem!.id).toBe("/folder/new.txt");
+    expect(updatedItem!.path).toBe("/folder/new.txt");
+    expect(updatedItem!.name).toBe("new.txt");
+    // Old item is gone
+    expect(state.items.find((i) => i.id === "/folder/old.txt")).toBeUndefined();
+  });
+
+  it("moves the itemLayout from the old id key to the new path key", async () => {
+    const item = makeItem({ id: "/folder/old.txt", path: "/folder/old.txt", name: "old.txt" });
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "/folder/old.txt": { id: "/folder/old.txt", position: { x: 50, y: 60 }, groupId: null, zIndex: 3 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      renameFile: vi.fn().mockResolvedValue({ newPath: "/folder/new.txt" }),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/old.txt", "new.txt");
+
+    const layouts = store.getState().workspace!.itemLayouts;
+    // Old key is gone
+    expect(layouts["/folder/old.txt"]).toBeUndefined();
+    // New key exists with updated id and preserved position/zIndex
+    expect(layouts["/folder/new.txt"]).toBeDefined();
+    expect(layouts["/folder/new.txt"].id).toBe("/folder/new.txt");
+    expect(layouts["/folder/new.txt"].position).toEqual({ x: 50, y: 60 });
+    expect(layouts["/folder/new.txt"].zIndex).toBe(3);
+  });
+
+  it("updates GroupModel.itemIds when the item was in a group", async () => {
+    const item = makeItem({ id: "/folder/old.txt", path: "/folder/old.txt", name: "old.txt" });
+    const workspace = makeWorkspace({
+      groups: {
+        "g1": {
+          id: "g1",
+          name: "My Pile",
+          position: { x: 0, y: 0 },
+          size: { width: 200, height: 200 },
+          collapsed: false,
+          itemIds: ["/folder/old.txt", "/folder/other.txt"],
+        },
+      },
+      itemLayouts: {
+        "/folder/old.txt": { id: "/folder/old.txt", position: { x: 5, y: 5 }, groupId: "g1", zIndex: 0 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      renameFile: vi.fn().mockResolvedValue({ newPath: "/folder/new.txt" }),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/old.txt", "new.txt");
+
+    const groups = store.getState().workspace!.groups;
+    expect(groups["g1"].itemIds).toContain("/folder/new.txt");
+    expect(groups["g1"].itemIds).not.toContain("/folder/old.txt");
+    // Other item in the group is not affected
+    expect(groups["g1"].itemIds).toContain("/folder/other.txt");
+  });
+
+  it("calls api.renameFile and saveWorkspace", async () => {
+    const item = makeItem({ id: "/folder/old.txt", path: "/folder/old.txt", name: "old.txt" });
+    const renameFile = vi.fn().mockResolvedValue({ newPath: "/folder/new.txt" });
+    const saveWorkspace = vi.fn().mockResolvedValue(undefined);
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      renameFile,
+      saveWorkspace,
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/old.txt", "new.txt");
+
+    expect(renameFile).toHaveBeenCalledWith("/folder/old.txt", "new.txt");
+    expect(saveWorkspace).toHaveBeenCalled();
+  });
+
+  it("does nothing when item id is not found", async () => {
+    const renameFile = vi.fn();
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      renameFile,
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().renameItem("/folder/nonexistent.txt", "other.txt");
+
+    expect(renameFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("trashItem", () => {
+  it("removes the item from items", async () => {
+    const item = makeItem({ id: "/folder/file.txt", path: "/folder/file.txt", name: "file.txt" });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      trashFile: vi.fn().mockResolvedValue(undefined),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/file.txt");
+
+    expect(store.getState().items.find((i) => i.id === "/folder/file.txt")).toBeUndefined();
+  });
+
+  it("removes the itemLayout entry for the trashed item", async () => {
+    const item = makeItem({ id: "/folder/file.txt", path: "/folder/file.txt", name: "file.txt" });
+    const otherItem = makeItem({ id: "/folder/other.txt", path: "/folder/other.txt", name: "other.txt" });
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "/folder/file.txt": { id: "/folder/file.txt", position: { x: 10, y: 10 }, groupId: null, zIndex: 0 },
+        "/folder/other.txt": { id: "/folder/other.txt", position: { x: 50, y: 50 }, groupId: null, zIndex: 0 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item, otherItem]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      trashFile: vi.fn().mockResolvedValue(undefined),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/file.txt");
+
+    const layouts = store.getState().workspace!.itemLayouts;
+    expect(layouts["/folder/file.txt"]).toBeUndefined();
+    // Other item layout is not affected
+    expect(layouts["/folder/other.txt"]).toBeDefined();
+    expect(layouts["/folder/other.txt"].position).toEqual({ x: 50, y: 50 });
+  });
+
+  it("removes the item from GroupModel.itemIds", async () => {
+    const item = makeItem({ id: "/folder/file.txt", path: "/folder/file.txt", name: "file.txt" });
+    const workspace = makeWorkspace({
+      groups: {
+        "g1": {
+          id: "g1",
+          name: "My Pile",
+          position: { x: 0, y: 0 },
+          size: { width: 200, height: 200 },
+          collapsed: false,
+          itemIds: ["/folder/file.txt", "/folder/keeper.txt"],
+        },
+      },
+      itemLayouts: {
+        "/folder/file.txt": { id: "/folder/file.txt", position: { x: 0, y: 0 }, groupId: "g1", zIndex: 0 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      trashFile: vi.fn().mockResolvedValue(undefined),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/file.txt");
+
+    const groups = store.getState().workspace!.groups;
+    expect(groups["g1"].itemIds).not.toContain("/folder/file.txt");
+    // Other item in the group is preserved
+    expect(groups["g1"].itemIds).toContain("/folder/keeper.txt");
+  });
+
+  it("never deletes layout data of other items", async () => {
+    const item = makeItem({ id: "/folder/a.txt", path: "/folder/a.txt", name: "a.txt" });
+    const workspace = makeWorkspace({
+      itemLayouts: {
+        "/folder/a.txt": { id: "/folder/a.txt", position: { x: 0, y: 0 }, groupId: null, zIndex: 0 },
+        "/folder/b.txt": { id: "/folder/b.txt", position: { x: 100, y: 100 }, groupId: null, zIndex: 2 },
+        "/folder/c.txt": { id: "/folder/c.txt", position: { x: 200, y: 200 }, groupId: null, zIndex: 4 },
+      },
+    });
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(workspace),
+      trashFile: vi.fn().mockResolvedValue(undefined),
+      saveWorkspace: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/a.txt");
+
+    const layouts = store.getState().workspace!.itemLayouts;
+    expect(layouts["/folder/a.txt"]).toBeUndefined();
+    expect(layouts["/folder/b.txt"]).toBeDefined();
+    expect(layouts["/folder/b.txt"].zIndex).toBe(2);
+    expect(layouts["/folder/c.txt"]).toBeDefined();
+    expect(layouts["/folder/c.txt"].position).toEqual({ x: 200, y: 200 });
+  });
+
+  it("calls api.trashFile and saveWorkspace", async () => {
+    const item = makeItem({ id: "/folder/file.txt", path: "/folder/file.txt", name: "file.txt" });
+    const trashFile = vi.fn().mockResolvedValue(undefined);
+    const saveWorkspace = vi.fn().mockResolvedValue(undefined);
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([item]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      trashFile,
+      saveWorkspace,
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/file.txt");
+
+    expect(trashFile).toHaveBeenCalledWith("/folder/file.txt");
+    expect(saveWorkspace).toHaveBeenCalled();
+  });
+
+  it("does nothing when item id is not found", async () => {
+    const trashFile = vi.fn();
+    const api = makeMockApi({
+      getFolderItems: vi.fn().mockResolvedValue([]),
+      loadWorkspace: vi.fn().mockResolvedValue(makeWorkspace()),
+      trashFile,
+    });
+
+    const store = createStore(api);
+    await store.getState().loadFolder("/folder");
+    await store.getState().trashItem("/folder/nonexistent.txt");
+
+    expect(trashFile).not.toHaveBeenCalled();
+  });
+});
+
 describe("saveWorkspace", () => {
   it("calls api.saveWorkspace with the current workspace", async () => {
     const workspace = makeWorkspace();

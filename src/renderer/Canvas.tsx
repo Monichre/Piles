@@ -108,6 +108,10 @@ export function Canvas() {
   const updateGroup = useStore(store, (s) => s.updateGroup);
   const addItemToGroup = useStore(store, (s) => s.addItemToGroup);
   const removeItemFromGroup = useStore(store, (s) => s.removeItemFromGroup);
+  const openItem = useStore(store, (s) => s.openItem);
+  const revealItem = useStore(store, (s) => s.revealItem);
+  const renameItem = useStore(store, (s) => s.renameItem);
+  const trashItem = useStore(store, (s) => s.trashItem);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -376,6 +380,34 @@ export function Canvas() {
     [store, saveWorkspace]
   );
 
+  // ── File action callbacks ─────────────────────────────────────────────────
+
+  const handleItemDoubleClick = useCallback(
+    (id: string) => {
+      void openItem(id);
+    },
+    [openItem]
+  );
+
+  const handleItemReveal = useCallback(
+    (id: string) => {
+      void revealItem(id);
+    },
+    [revealItem]
+  );
+
+  const handleItemRename = useCallback(
+    (id: string, newName: string) => renameItem(id, newName),
+    [renameItem]
+  );
+
+  const handleItemTrash = useCallback(
+    (id: string) => {
+      void trashItem(id);
+    },
+    [trashItem]
+  );
+
   // ── Build per-pile member lists ───────────────────────────────────────────
 
   const itemsById = useMemo(() => {
@@ -443,6 +475,10 @@ export function Canvas() {
               onCollapse={handlePileCollapse}
               onDelete={handlePileDelete}
               onItemPointerDown={handleItemPointerDown}
+              onItemDoubleClick={handleItemDoubleClick}
+              onItemReveal={handleItemReveal}
+              onItemRename={handleItemRename}
+              onItemTrash={handleItemTrash}
             />
           );
         })}
@@ -470,6 +506,10 @@ export function Canvas() {
                 zIndex={zIndex}
                 selected={selection.selectedIds.has(item.id)}
                 onPointerDown={handleItemPointerDown}
+                onDoubleClick={handleItemDoubleClick}
+                onReveal={handleItemReveal}
+                onRename={handleItemRename}
+                onTrash={handleItemTrash}
               />
             );
           })}

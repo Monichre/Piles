@@ -26,6 +26,10 @@ export interface PileCardProps {
   onCollapse: (groupId: string, collapsed: boolean) => void;
   onDelete: (groupId: string) => void;
   onItemPointerDown: (e: PointerEvent<HTMLDivElement>, itemId: string) => void;
+  onItemDoubleClick?: (id: string) => void;
+  onItemReveal?: (id: string) => void;
+  onItemRename?: (id: string, newName: string) => Promise<void>;
+  onItemTrash?: (id: string) => void;
   /** Base z-index for the pile background layer. */
   zIndex?: number;
   /**
@@ -63,6 +67,10 @@ export const PileCard = memo(function PileCard({
   onCollapse,
   onDelete,
   onItemPointerDown,
+  onItemDoubleClick,
+  onItemReveal,
+  onItemRename,
+  onItemTrash,
   zIndex = 0,
   canvasEl,
 }: PileCardProps) {
@@ -320,6 +328,10 @@ export const PileCard = memo(function PileCard({
                 zIndex={1}
                 selected={false}
                 onPointerDown={onItemPointerDown}
+                onDoubleClick={onItemDoubleClick}
+                onReveal={onItemReveal}
+                onRename={onItemRename}
+                onTrash={onItemTrash}
               />
             );
           })}
