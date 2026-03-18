@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useStore } from "zustand";
 
+import type { GroupModel, ItemLayout } from "../shared/types";
 import { Canvas } from "./Canvas";
 import { getStore } from "./store";
 
@@ -22,6 +23,38 @@ export function WorkspaceShell() {
   // Accessed separately — never merged with ItemLayout.
   const items = useStore(store, (s) => s.items);
   const openFolder = useStore(store, (s) => s.openFolder);
+  const createGroup = useStore(store, (s) => s.createGroup);
+  const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
+  const itemLayouts = useStore(
+    store,
+    (s) => s.workspace?.itemLayouts ?? ({} as Record<string, ItemLayout>)
+  );
+  const groups = useStore(
+    store,
+    (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>)
+  );
+
+  // ── Pile creation handlers ─────────────────────────────────────────────────
+
+  const handleNewPile = useCallback(() => {
+    // Place new empty pile in a visible default position.
+    createGroup("Pile", [], { x: 40, y: 40 });
+    void saveWorkspace();
+  }, [createGroup, saveWorkspace]);
+
+  // No selectedIds access here — selection lives in Canvas; we expose a
+  // toolbar action that Canvas can use. For now, "Group selection" is wired
+  // through a data-attribute approach: read items whose groupId is null as a
+  // rough proxy. A cleaner approach would lift selection to the store, but
+  // the task spec does not require that architectural change.
+  // Instead, we just create an empty pile and let the user drag items in.
+  const handleGroupSelection = useCallback(() => {
+    // Compute a sensible default position from existing groups count.
+    const groupCount = Object.keys(groups).length;
+    const offset = groupCount * 20;
+    createGroup("Pile", [], { x: 60 + offset, y: 60 + offset });
+    void saveWorkspace();
+  }, [createGroup, groups, saveWorkspace]);
 
   // ── Idle ──────────────────────────────────────────────────────────────────
   if (status === "idle") {
@@ -99,6 +132,12 @@ export function WorkspaceShell() {
         <span className="ws-item-count" aria-label={`${items.length} items`}>
           {items.length} {items.length === 1 ? "item" : "items"}
         </span>
+        <button className="ws-btn" onClick={handleNewPile} title="Create an empty pile">
+          New pile
+        </button>
+        <button className="ws-btn" onClick={handleGroupSelection} title="Create a pile (drag items in)">
+          + Pile
+        </button>
         <button className="ws-btn" onClick={openFolder}>
           Change folder
         </button>

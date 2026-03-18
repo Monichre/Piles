@@ -256,3 +256,140 @@ code {
 .ws-btn--primary:hover {
   background: #2563eb;
 }
+
+/* ─── Pile Card ────────────────────────────────────────────────────────── */
+
+.pile-card {
+  position: absolute;
+  border: 1px solid rgba(255, 214, 102, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 214, 102, 0.04);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 80ms ease;
+}
+
+.pile-card:hover {
+  border-color: rgba(255, 214, 102, 0.45);
+}
+
+.pile-card--collapsed {
+  overflow: visible;
+}
+
+/* Pile header */
+.pile-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 36px;
+  flex-shrink: 0;
+  cursor: grab;
+  background: rgba(255, 214, 102, 0.08);
+  border-bottom: 1px solid rgba(255, 214, 102, 0.15);
+  user-select: none;
+}
+
+.pile-header:active {
+  cursor: grabbing;
+}
+
+.pile-card--collapsed .pile-header {
+  border-bottom: none;
+  border-radius: 12px;
+}
+
+/* Pile name */
+.pile-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 214, 102, 0.9);
+  cursor: inherit;
+}
+
+.pile-name--editing {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 214, 102, 0.5);
+  border-radius: 4px;
+  color: #f7f8fb;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  outline: none;
+  cursor: text;
+}
+
+/* Item count badge */
+.pile-count {
+  font-size: 0.68rem;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  color: rgba(255, 214, 102, 0.6);
+  background: rgba(255, 214, 102, 0.1);
+  border-radius: 10px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+/* Pile action buttons */
+.pile-btn {
+  background: none;
+  border: none;
+  color: rgba(247, 248, 251, 0.45);
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 80ms ease, background 80ms ease;
+}
+
+.pile-btn:hover {
+  color: rgba(247, 248, 251, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pile-btn--delete:hover {
+  color: #ff7b7b;
+}
+
+/* Pile body */
+.pile-body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding: 4px;
+}
+
+/* Resize handle */
+.pile-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: se-resize;
+  opacity: 0.4;
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 214, 102, 0.6) 40%,
+    rgba(255, 214, 102, 0.6) 50%,
+    transparent 50%,
+    transparent 65%,
+    rgba(255, 214, 102, 0.6) 65%,
+    rgba(255, 214, 102, 0.6) 75%,
+    transparent 75%
+  );
+}
+
+.pile-resize:hover {
+  opacity: 0.9;
+}

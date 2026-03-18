@@ -1,7 +1,7 @@
 import { createStore as createZustandStore } from "zustand";
 
 import type { PilesAPI } from "../shared/ipc";
-import type { FileMeta, ItemLayout, WorkspaceData } from "../shared/types";
+import type { FileMeta, GroupModel, ItemLayout, Point, WorkspaceData } from "../shared/types";
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -30,6 +30,26 @@ export interface PilesActions {
   updateItemLayout: (id: string, patch: Partial<ItemLayout>) => void;
   /** Batch-update multiple item layouts, creating missing entries. */
   updateItemLayouts: (updates: Record<string, Partial<ItemLayout>>) => void;
+
+  // ── Pile (Group) actions ─────────────────────────────────────────────────
+  /**
+   * Create a new group with the given name, initial member item IDs, and
+   * canvas position. Returns the new group's id.
+   * Item layouts for the given IDs are updated to set groupId.
+   */
+  createGroup: (name: string, itemIds: string[], position: Point) => string;
+  /**
+   * Remove a group from the workspace. NEVER deletes files on disk — purely
+   * removes the visual grouping. Items that belonged to the group have their
+   * groupId set back to null.
+   */
+  deleteGroup: (groupId: string) => void;
+  /** Patch one or more fields of an existing group (name, position, size, collapsed). */
+  updateGroup: (groupId: string, patch: Partial<GroupModel>) => void;
+  /** Move an item into a group, removing it from its current group first. */
+  addItemToGroup: (itemId: string, groupId: string) => void;
+  /** Remove an item from its current group (sets ItemLayout.groupId to null). */
+  removeItemFromGroup: (itemId: string) => void;
 }
 
 export type PilesStore = PilesState & PilesActions;
@@ -132,6 +152,179 @@ export function createStore(api: PilesAPI) {
         };
       }
       set({ workspace: { ...workspace, itemLayouts: next } });
+    },
+
+    // ── Pile (Group) actions ───────────────────────────────────────────────
+
+    createGroup: (name, itemIds, position) => {
+      const { workspace } = get();
+      if (!workspace) return "";
+
+      const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const group: GroupModel = {
+        id,
+        name,
+        position,
+        size: { width: 240, height: 200 },
+        collapsed: false,
+        itemIds: [...itemIds],
+      };
+
+      // Update itemLayouts so each member item's groupId is set.
+      const nextLayouts = { ...workspace.itemLayouts };
+      for (const itemId of itemIds) {
+        nextLayouts[itemId] = {
+          ...(nextLayouts[itemId] ?? { id: itemId, position: { x: 0, y: 0 }, zIndex: 0 }),
+          groupId: id,
+        };
+      }
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: { ...workspace.groups, [id]: group },
+          itemLayouts: nextLayouts,
+        },
+      });
+
+      return id;
+    },
+
+    deleteGroup: (groupId) => {
+      const { workspace } = get();
+      if (!workspace) return;
+
+      const group = workspace.groups[groupId];
+      if (!group) return;
+
+      // Release all member items back to the canvas (set groupId → null).
+      // This NEVER touches the filesystem — purely layout mutation.
+      const nextLayouts = { ...workspace.itemLayouts };
+      for (const itemId of group.itemIds) {
+        if (nextLayouts[itemId]) {
+          nextLayouts[itemId] = { ...nextLayouts[itemId], groupId: null };
+        }
+      }
+
+      const nextGroups = { ...workspace.groups };
+      delete nextGroups[groupId];
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: nextGroups,
+          itemLayouts: nextLayouts,
+        },
+      });
+    },
+
+    updateGroup: (groupId, patch) => {
+      const { workspace } = get();
+      if (!workspace) return;
+
+      const existing = workspace.groups[groupId];
+      if (!existing) return;
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: {
+            ...workspace.groups,
+            [groupId]: { ...existing, ...patch },
+          },
+        },
+      });
+    },
+
+    addItemToGroup: (itemId, groupId) => {
+      const { workspace } = get();
+      if (!workspace) return;
+
+      const targetGroup = workspace.groups[groupId];
+      if (!targetGroup) return;
+
+      // Remove from any current group first.
+      const currentGroupId = workspace.itemLayouts[itemId]?.groupId ?? null;
+      let nextGroups = workspace.groups;
+
+      if (currentGroupId && currentGroupId !== groupId) {
+        const oldGroup = nextGroups[currentGroupId];
+        if (oldGroup) {
+          nextGroups = {
+            ...nextGroups,
+            [currentGroupId]: {
+              ...oldGroup,
+              itemIds: oldGroup.itemIds.filter((id) => id !== itemId),
+            },
+          };
+        }
+      }
+
+      // Add to target group if not already a member.
+      const alreadyMember = targetGroup.itemIds.includes(itemId);
+      nextGroups = {
+        ...nextGroups,
+        [groupId]: {
+          ...targetGroup,
+          itemIds: alreadyMember ? targetGroup.itemIds : [...targetGroup.itemIds, itemId],
+        },
+      };
+
+      // Update item layout groupId.
+      const existing = workspace.itemLayouts[itemId];
+      const nextLayouts = {
+        ...workspace.itemLayouts,
+        [itemId]: {
+          ...(existing ?? { id: itemId, position: { x: 0, y: 0 }, zIndex: 0 }),
+          groupId,
+        },
+      };
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: nextGroups,
+          itemLayouts: nextLayouts,
+        },
+      });
+    },
+
+    removeItemFromGroup: (itemId) => {
+      const { workspace } = get();
+      if (!workspace) return;
+
+      const currentGroupId = workspace.itemLayouts[itemId]?.groupId ?? null;
+      if (!currentGroupId) return; // not in any group
+
+      const group = workspace.groups[currentGroupId];
+      let nextGroups = workspace.groups;
+
+      if (group) {
+        nextGroups = {
+          ...nextGroups,
+          [currentGroupId]: {
+            ...group,
+            itemIds: group.itemIds.filter((id) => id !== itemId),
+          },
+        };
+      }
+
+      const existing = workspace.itemLayouts[itemId];
+      const nextLayouts = {
+        ...workspace.itemLayouts,
+        [itemId]: {
+          ...(existing ?? { id: itemId, position: { x: 0, y: 0 }, zIndex: 0 }),
+          groupId: null,
+        },
+      };
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: nextGroups,
+          itemLayouts: nextLayouts,
+        },
+      });
     },
   }));
 }

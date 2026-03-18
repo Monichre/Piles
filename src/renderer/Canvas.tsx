@@ -8,8 +8,9 @@ import {
 } from "react";
 import { useStore } from "zustand";
 
-import type { FileMeta, ItemLayout, Point } from "../shared/types";
+import type { FileMeta, GroupModel, ItemLayout, Point } from "../shared/types";
 import { CanvasItem } from "./CanvasItem";
+import { PileCard } from "./PileCard";
 import { getStore } from "./store";
 import { defaultPositionForIndex } from "./useDrag";
 import { useDrag } from "./useDrag";
@@ -21,6 +22,10 @@ import { pointInRect, rectFromPoints, useSelection } from "./useSelection";
 
 const CANVAS_WIDTH = 3000;
 const CANVAS_HEIGHT = 3000;
+
+// Z-index budget: pile backgrounds render below items.
+const PILE_BASE_Z = 10;
+const ITEM_BASE_Z = 100;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,6 +65,28 @@ function toCanvasPoint(
   };
 }
 
+/**
+ * Returns the groupId of the first pile that contains the given canvas point,
+ * or null if the point is not inside any pile.
+ */
+function hitTestGroups(
+  point: Point,
+  groups: Record<string, GroupModel>
+): string | null {
+  for (const group of Object.values(groups)) {
+    const rect = {
+      x: group.position.x,
+      y: group.position.y,
+      width: group.size.width,
+      height: group.collapsed ? 36 : group.size.height,
+    };
+    if (pointInRect(point, rect)) {
+      return group.id;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -72,8 +99,15 @@ export function Canvas() {
     store,
     (s) => s.workspace?.itemLayouts ?? ({} as Record<string, ItemLayout>)
   );
+  const groups = useStore(
+    store,
+    (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>)
+  );
   const updateItemLayouts = useStore(store, (s) => s.updateItemLayouts);
   const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
+  const updateGroup = useStore(store, (s) => s.updateGroup);
+  const addItemToGroup = useStore(store, (s) => s.addItemToGroup);
+  const removeItemFromGroup = useStore(store, (s) => s.removeItemFromGroup);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -187,8 +221,12 @@ export function Canvas() {
       if (!canvasEl) return;
 
       if (drag.isDragging) {
+        const dropPoint = toCanvasPoint(e, canvasEl);
         const result = drag.endDrag();
         if (result) {
+          // Determine if items were dropped on a pile.
+          const targetGroupId = hitTestGroups(dropPoint, groups);
+
           // Build the layout updates for all dragged items.
           const updates: Record<string, Partial<ItemLayout>> = {};
           for (const [id, position] of Object.entries(result.positions)) {
@@ -200,6 +238,22 @@ export function Canvas() {
             };
           }
           updateItemLayouts(updates);
+
+          // Apply group membership changes based on drop target.
+          if (targetGroupId) {
+            for (const id of Object.keys(result.positions)) {
+              addItemToGroup(id, targetGroupId);
+            }
+          } else {
+            // Dropped on empty canvas — remove from any group.
+            for (const id of Object.keys(result.positions)) {
+              const currentGroupId = itemLayouts[id]?.groupId ?? null;
+              if (currentGroupId) {
+                removeItemFromGroup(id);
+              }
+            }
+          }
+
           // Persist asynchronously — don't block the pointer event.
           void saveWorkspace();
         }
@@ -232,9 +286,12 @@ export function Canvas() {
       drag,
       selection,
       items,
+      groups,
       itemLayouts,
       defaultPositions,
       updateItemLayouts,
+      addItemToGroup,
+      removeItemFromGroup,
       saveWorkspace,
     ]
   );
@@ -260,6 +317,56 @@ export function Canvas() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [selection]);
+
+  // ── Pile action callbacks ─────────────────────────────────────────────────
+
+  const handlePileMove = useCallback(
+    (groupId: string, newPosition: Point) => {
+      updateGroup(groupId, { position: newPosition });
+    },
+    [updateGroup]
+  );
+
+  const handlePileResize = useCallback(
+    (groupId: string, newSize: { width: number; height: number }) => {
+      updateGroup(groupId, { size: newSize });
+    },
+    [updateGroup]
+  );
+
+  const handlePileRename = useCallback(
+    (groupId: string, newName: string) => {
+      updateGroup(groupId, { name: newName });
+      void saveWorkspace();
+    },
+    [updateGroup, saveWorkspace]
+  );
+
+  const handlePileCollapse = useCallback(
+    (groupId: string, collapsed: boolean) => {
+      updateGroup(groupId, { collapsed });
+      void saveWorkspace();
+    },
+    [updateGroup, saveWorkspace]
+  );
+
+  const handlePileDelete = useCallback(
+    (groupId: string) => {
+      store.getState().deleteGroup(groupId);
+      void saveWorkspace();
+    },
+    [store, saveWorkspace]
+  );
+
+  // ── Build per-pile member lists ───────────────────────────────────────────
+
+  const itemsById = useMemo(() => {
+    const map: Record<string, FileMeta> = {};
+    for (const item of items) {
+      map[item.id] = item;
+    }
+    return map;
+  }, [items]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -296,29 +403,54 @@ export function Canvas() {
       onPointerCancel={handlePointerCancel}
     >
       <div className="canvas-surface" style={canvasStyle}>
-        {items.map((item) => {
-          // Drag override takes priority, then saved layout, then default.
-          const position =
-            drag.dragPositions[item.id] ??
-            itemLayouts[item.id]?.position ??
-            defaultPositions[item.id] ??
-            { x: 0, y: 0 };
-
-          const zIndex = drag.dragPositions[item.id]
-            ? 9998 // Float dragged items below the marquee overlay
-            : (itemLayouts[item.id]?.zIndex ?? 0);
+        {/* Pile backgrounds — rendered below items */}
+        {Object.values(groups).map((group, idx) => {
+          const members = group.itemIds
+            .map((id) => itemsById[id])
+            .filter((item): item is FileMeta => item !== undefined);
 
           return (
-            <CanvasItem
-              key={item.id}
-              item={item}
-              position={position}
-              zIndex={zIndex}
-              selected={selection.selectedIds.has(item.id)}
-              onPointerDown={handleItemPointerDown}
+            <PileCard
+              key={group.id}
+              group={group}
+              members={members}
+              zIndex={PILE_BASE_Z + idx}
+              onMove={handlePileMove}
+              onResize={handlePileResize}
+              onRename={handlePileRename}
+              onCollapse={handlePileCollapse}
+              onDelete={handlePileDelete}
+              onItemPointerDown={handleItemPointerDown}
             />
           );
         })}
+
+        {/* Canvas items — render items NOT inside a pile at their absolute positions */}
+        {items
+          .filter((item) => !(itemLayouts[item.id]?.groupId))
+          .map((item) => {
+            // Drag override takes priority, then saved layout, then default.
+            const position =
+              drag.dragPositions[item.id] ??
+              itemLayouts[item.id]?.position ??
+              defaultPositions[item.id] ??
+              { x: 0, y: 0 };
+
+            const zIndex = drag.dragPositions[item.id]
+              ? 9998 // Float dragged items below the marquee overlay
+              : (ITEM_BASE_Z + (itemLayouts[item.id]?.zIndex ?? 0));
+
+            return (
+              <CanvasItem
+                key={item.id}
+                item={item}
+                position={position}
+                zIndex={zIndex}
+                selected={selection.selectedIds.has(item.id)}
+                onPointerDown={handleItemPointerDown}
+              />
+            );
+          })}
 
         {marqueeStyle && <div style={marqueeStyle} aria-hidden="true" />}
       </div>
