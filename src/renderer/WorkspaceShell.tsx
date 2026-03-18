@@ -12,8 +12,7 @@ import { getStore } from "./store";
 // ---------------------------------------------------------------------------
 
 export function WorkspaceShell() {
-  // getStore() returns the same singleton on every call; useMemo here is a
-  // belt-and-suspenders guard so the store reference is stable across renders.
+  // useMemo ensures a stable store reference across re-renders and React StrictMode double-invokes
   const store = useMemo(() => getStore(), []);
 
   const status = useStore(store, (s) => s.status);

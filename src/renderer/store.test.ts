@@ -29,7 +29,7 @@ const makeWorkspace = (overrides: Partial<WorkspaceData> = {}): WorkspaceData =>
 });
 
 const makeMockApi = (overrides: Partial<PilesAPI> = {}): PilesAPI => ({
-  selectFolder: vi.fn(),
+  selectFolder: vi.fn().mockResolvedValue(null),
   getFolderItems: vi.fn().mockResolvedValue([]),
   loadWorkspace: vi.fn().mockResolvedValue(null),
   saveWorkspace: vi.fn().mockResolvedValue(undefined),
@@ -142,6 +142,41 @@ describe("loadFolder", () => {
 
     expect(getFolderItems).toHaveBeenCalledOnce();
     expect(loadWorkspace).toHaveBeenCalledOnce();
+  });
+
+  it("discards stale loadFolder results when called concurrently", async () => {
+    let resolveFirst!: () => void;
+    const firstDone = new Promise<void>((res) => {
+      resolveFirst = res;
+    });
+
+    const api = makeMockApi({
+      getFolderItems: vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          await firstDone;
+          return [];
+        })
+        .mockResolvedValue([
+          makeItem({ id: "/b/f.txt", path: "/b/f.txt", name: "f.txt", extension: "txt" }),
+        ]),
+      loadWorkspace: vi.fn().mockResolvedValue(null),
+    });
+
+    const store = createStore(api);
+
+    // Start first load — will hang until resolveFirst() is called.
+    const first = store.getState().loadFolder("/a");
+    // Start second load — resolves immediately and should win.
+    await store.getState().loadFolder("/b");
+
+    // Now unblock the first load (now stale).
+    resolveFirst();
+    await first;
+
+    const state = store.getState();
+    expect(state.folderPath).toBe("/b");
+    expect(state.items[0]?.name).toBe("f.txt");
   });
 
   it("does not merge FileMeta and ItemLayout — they remain on separate fields", async () => {

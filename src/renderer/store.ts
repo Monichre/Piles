@@ -36,6 +36,11 @@ export type PilesStore = PilesState & PilesActions;
 // ---------------------------------------------------------------------------
 
 export function createStore(api: PilesAPI) {
+  // Per-instance counter so concurrent loadFolder calls can detect staleness.
+  // Incrementing before the async work and comparing after ensures only the
+  // most-recently-dispatched call commits its result to state.
+  let loadRequestId = 0;
+
   return createZustandStore<PilesStore>((set, get) => ({
     // Initial state
     folderPath: null,
@@ -55,26 +60,31 @@ export function createStore(api: PilesAPI) {
     },
 
     loadFolder: async (path: string) => {
+      const requestId = ++loadRequestId;
       set({ status: "loading", error: null, folderPath: path });
 
       try {
         // Run both fetches in parallel — they are independent.
-        const [items, workspace] = await Promise.all([
+        const [items, rawWorkspace] = await Promise.all([
           api.getFolderItems(path),
           api.loadWorkspace(path),
         ]);
 
+        // Discard result if a newer loadFolder call was made while we awaited.
+        if (requestId !== loadRequestId) return;
+
         // If no workspace exists yet, seed a minimal one so the canvas always
         // has a valid base to work with.
-        const resolvedWorkspace: WorkspaceData = workspace ?? {
+        const workspace: WorkspaceData = rawWorkspace ?? {
           folderPath: path,
           groups: {},
           itemLayouts: {},
           settings: { snapToGrid: false },
         };
 
-        set({ items, workspace: resolvedWorkspace, status: "loaded" });
+        set({ items, workspace, status: "loaded" });
       } catch (err) {
+        if (requestId !== loadRequestId) return;
         const message =
           err instanceof Error ? err.message : "Failed to load folder.";
         set({ status: "error", error: message, items: [], workspace: null });
