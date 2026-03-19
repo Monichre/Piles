@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import type { FileMeta, Point } from "../shared/types";
+import { getItemBadgeLabel, getItemKindLabel } from "./presentation";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -141,6 +142,9 @@ export const CanvasItem = memo(function CanvasItem({
     userSelect: "none",
   };
 
+  const badgeLabel = getItemBadgeLabel(item);
+  const kindLabel = getItemKindLabel(item);
+
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       onPointerDown(e, item.id);
@@ -251,9 +255,14 @@ export const CanvasItem = memo(function CanvasItem({
         role="button"
         tabIndex={0}
       >
-        <span className="ci-icon" aria-hidden="true">
-          {item.kind === "folder" ? "📁" : "📄"}
-        </span>
+        <div className="ci-topline" aria-hidden="true">
+          <span className="ci-badge">{badgeLabel}</span>
+          <span className="ci-topline__rule" />
+        </div>
+        <div className={`ci-preview ci-preview--${item.kind}`} aria-hidden="true">
+          <span className="ci-preview__line" />
+          <span className="ci-preview__line ci-preview__line--short" />
+        </div>
         {editing ? (
           <input
             className="ci-name ci-name--editing"
@@ -270,6 +279,7 @@ export const CanvasItem = memo(function CanvasItem({
             {item.name}
           </span>
         )}
+        <span className="ci-meta">{kindLabel}</span>
       </div>
 
       {ctxMenu && (

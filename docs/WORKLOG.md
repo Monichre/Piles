@@ -65,10 +65,24 @@
 
 ---
 
-## Remaining tasks
+## 2026-03-19 — renderer UI pass, Storybook coverage
 
-| Task | Status | Depends on |
-|------|--------|------------|
-| T-011 Watch / rescan / reconcile | pending | T-009, T-010 ✅ |
-| T-012 Auto Group | pending | T-009 ✅ |
-| T-013 Final QA | pending | T-011, T-012 |
+**What changed:**
+- Reworked the renderer into a more deliberate "studio board" UI, including the shell, toolbar, canvas treatment, file cards, piles, and empty/error states.
+- Added `src/renderer/InspectorPanel.tsx` for selection-driven actions, plus `src/renderer/presentation.ts` and `src/renderer/presentation.test.ts` to keep display formatting logic out of the main components.
+- Replaced the invalid contents of `src/renderer/components/whiteboard/WhiteBoard.tsx` with a harmless placeholder so typecheck and build stop failing on that file.
+- Added Storybook stories for `Canvas`, `CanvasItem`, `InspectorPanel`, and `WorkspaceShell`, along with `src/renderer/storybook-fixtures.ts` to prime the Zustand store for story rendering.
+- Updated `.storybook/main.ts` to pre-optimize `zustand`, which fixed the Storybook/Vitest hook and reload issues during validation.
+
+**Validation:**
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+- `npm run build-storybook`
+
+---
+
+## Current state
+
+- `docs/TODO.md` is complete through `T-013`.
+- The follow-up work on 2026-03-19 was polish and Storybook coverage on top of the completed execution queue.

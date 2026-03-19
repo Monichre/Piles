@@ -11,6 +11,13 @@ const config: StorybookConfig = {
     "@storybook/addon-a11y",
     "@storybook/addon-docs"
   ],
-  "framework": "@storybook/react-vite"
+  "framework": "@storybook/react-vite",
+  viteFinal: async (config) => ({
+    ...config,
+    optimizeDeps: {
+      ...config.optimizeDeps,
+      include: [...(config.optimizeDeps?.include ?? []), 'zustand'],
+    },
+  }),
 };
 export default config;

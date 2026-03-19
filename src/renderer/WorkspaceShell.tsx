@@ -21,6 +21,10 @@ export function WorkspaceShell() {
   const folderPath = useStore(store, (s) => s.folderPath);
   // Accessed separately — never merged with ItemLayout.
   const items = useStore(store, (s) => s.items);
+  const groupCount = useStore(
+    store,
+    (s) => Object.keys(s.workspace?.groups ?? {}).length
+  );
   const openFolder = useStore(store, (s) => s.openFolder);
   const createGroup = useStore(store, (s) => s.createGroup);
   const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
@@ -65,15 +69,23 @@ export function WorkspaceShell() {
     return (
       <main className="ws-shell ws-shell--idle">
         <div className="ws-prompt">
-          <p className="eyebrow">Piles</p>
-          <h1>Drop a folder to begin.</h1>
-          <p className="lede">
-            Piles arranges your files on a spatial canvas without touching the
-            filesystem.
-          </p>
-          <button className="ws-btn ws-btn--primary" onClick={openFolder}>
-            Open folder…
-          </button>
+          <div className="ws-prompt-card">
+            <p className="eyebrow">Piles</p>
+            <h1>Turn a folder into a working board.</h1>
+            <p className="lede">
+              Lay files out like references on a studio wall, then stack them
+              into virtual piles without touching the filesystem.
+            </p>
+            <div className="ws-prompt-actions">
+              <button className="ws-btn ws-btn--primary" onClick={openFolder}>
+                Open folder…
+              </button>
+            </div>
+            <div className="ws-prompt-notes" aria-hidden="true">
+              <span className="ws-note-pill">Per-folder layout memory</span>
+              <span className="ws-note-pill">Virtual grouping only</span>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -95,12 +107,16 @@ export function WorkspaceShell() {
     return (
       <main className="ws-shell ws-shell--error" role="alert">
         <div className="ws-prompt">
-          <p className="eyebrow ws-eyebrow--error">Error</p>
-          <h1>Could not load folder.</h1>
-          {error && <p className="lede">{error}</p>}
-          <button className="ws-btn ws-btn--primary" onClick={openFolder}>
-            Try another folder…
-          </button>
+          <div className="ws-prompt-card">
+            <p className="eyebrow ws-eyebrow--error">Error</p>
+            <h1>Could not load that workspace.</h1>
+            {error && <p className="lede">{error}</p>}
+            <div className="ws-prompt-actions">
+              <button className="ws-btn ws-btn--primary" onClick={openFolder}>
+                Try another folder…
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -111,15 +127,19 @@ export function WorkspaceShell() {
     return (
       <main className="ws-shell ws-shell--empty">
         <div className="ws-prompt">
-          <p className="eyebrow">Empty folder</p>
-          <h1>Nothing here yet.</h1>
-          <p className="lede">
-            Add files to <code>{folderPath}</code> and they will appear on the
-            canvas.
-          </p>
-          <button className="ws-btn" onClick={openFolder}>
-            Open a different folder…
-          </button>
+          <div className="ws-prompt-card">
+            <p className="eyebrow">Empty folder</p>
+            <h1>Nothing is pinned to the board yet.</h1>
+            <p className="lede">
+              Add files to <code>{folderPath}</code> and they will appear here
+              as movable cards.
+            </p>
+            <div className="ws-prompt-actions">
+              <button className="ws-btn" onClick={openFolder}>
+                Open a different folder…
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -130,24 +150,56 @@ export function WorkspaceShell() {
   return (
     <main className="ws-shell ws-shell--canvas">
       <header className="ws-toolbar">
-        <span className="ws-folder-path" title={folderPath ?? ""}>
-          {folderPath}
-        </span>
-        <span className="ws-item-count" aria-label={`${items.length} items`}>
-          {items.length} {items.length === 1 ? "item" : "items"}
-        </span>
-        <button className="ws-btn ws-btn--primary" onClick={() => autoGroup()} title="Automatically group files by type">
-          Auto Group
-        </button>
-        <button className="ws-btn" onClick={handleNewPile} title="Create an empty pile">
-          New pile
-        </button>
-        <button className="ws-btn" onClick={openFolder}>
-          Change folder
-        </button>
+        <div className="ws-toolbar__brand">
+          <div className="ws-brand-mark" aria-hidden="true">
+            PL
+          </div>
+          <div className="ws-brand-copy">
+            <p className="ws-brand-kicker">Studio board</p>
+            <strong>Piles</strong>
+          </div>
+        </div>
+
+        <div className="ws-toolbar__folder-block">
+          <span className="ws-toolbar__label">Active folder</span>
+          <span className="ws-folder-path" title={folderPath ?? ""}>
+            {folderPath}
+          </span>
+        </div>
+
+        <div className="ws-toolbar__meta">
+          <span className="ws-pill" aria-label={`${items.length} items`}>
+            {items.length} {items.length === 1 ? "item" : "items"}
+          </span>
+          <span className="ws-pill ws-pill--warm" aria-label={`${groupCount} piles`}>
+            {groupCount} {groupCount === 1 ? "pile" : "piles"}
+          </span>
+        </div>
+
+        <div className="ws-toolbar__actions">
+          <button
+            className="ws-btn ws-btn--primary"
+            onClick={() => autoGroup()}
+            title="Automatically group files by type"
+          >
+            Auto Group
+          </button>
+          <button
+            className="ws-btn"
+            onClick={handleNewPile}
+            title="Create an empty pile"
+          >
+            New pile
+          </button>
+          <button className="ws-btn" onClick={openFolder}>
+            Change folder
+          </button>
+        </div>
       </header>
 
-      <Canvas />
+      <section className="ws-stage">
+        <Canvas />
+      </section>
     </main>
   );
 }

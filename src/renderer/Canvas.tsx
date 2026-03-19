@@ -11,6 +11,7 @@ import { useStore } from "zustand";
 
 import type { FileMeta, GroupModel, ItemLayout, Point } from "../shared/types";
 import { CanvasItem } from "./CanvasItem";
+import { InspectorPanel } from "./InspectorPanel";
 import { PileCard } from "./PileCard";
 import { getStore } from "./store";
 import { defaultPositionForIndex } from "./useDrag";
@@ -159,6 +160,22 @@ export function Canvas() {
     [selection.selectedIds]
   );
 
+  const itemsById = useMemo(() => {
+    const map: Record<string, FileMeta> = {};
+    for (const item of items) {
+      map[item.id] = item;
+    }
+    return map;
+  }, [items]);
+
+  const selectedItems = useMemo(
+    () =>
+      selectedIds
+        .map((id) => itemsById[id])
+        .filter((item): item is FileMeta => item !== undefined),
+    [itemsById, selectedIds]
+  );
+
   const clearSelection = useCallback(() => {
     selectionRef.current = new Set();
     selection.deselectAll();
@@ -190,6 +207,46 @@ export function Canvas() {
     clearSelection();
     void saveWorkspace();
   }, [clearSelection, createGroup, defaultPositions, itemLayouts, saveWorkspace, selectedIds]);
+
+  const requestRenameForSelection = useCallback(() => {
+    if (selectedIds.length !== 1) {
+      return;
+    }
+
+    const [itemId] = selectedIds;
+    setRenameRequest((current) => ({
+      itemId,
+      token: current?.itemId === itemId ? current.token + 1 : 1,
+    }));
+  }, [selectedIds]);
+
+  const handleOpenSelection = useCallback(async () => {
+    if (selectedIds.length !== 1) {
+      return;
+    }
+
+    await openItem(selectedIds[0]);
+  }, [openItem, selectedIds]);
+
+  const handleRevealSelection = useCallback(async () => {
+    if (selectedIds.length !== 1) {
+      return;
+    }
+
+    await revealItem(selectedIds[0]);
+  }, [revealItem, selectedIds]);
+
+  const handleTrashSelection = useCallback(async () => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const idsToTrash = [...selectedIds];
+    clearSelection();
+    for (const id of idsToTrash) {
+      await trashItem(id);
+    }
+  }, [clearSelection, selectedIds, trashItem]);
 
   // ── Pointer down on item ─────────────────────────────────────────────────
 
@@ -403,36 +460,25 @@ export function Canvas() {
 
       if (e.key === "F2" && currentSelection.length === 1) {
         e.preventDefault();
-        setRenameRequest((current) => ({
-          itemId: currentSelection[0],
-          token:
-            current?.itemId === currentSelection[0]
-              ? current.token + 1
-              : 1,
-        }));
+        requestRenameForSelection();
         return;
       }
 
       if (e.key === "Enter" && currentSelection.length === 1) {
         e.preventDefault();
-        void openItem(currentSelection[0]);
+        void handleOpenSelection();
         return;
       }
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        clearSelection();
-        void (async () => {
-          for (const id of currentSelection) {
-            await trashItem(id);
-          }
-        })();
+        void handleTrashSelection();
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [clearSelection, openItem, trashItem]);
+  }, [clearSelection, handleOpenSelection, handleTrashSelection, requestRenameForSelection]);
 
   // ── Pile action callbacks ─────────────────────────────────────────────────
 
@@ -507,16 +553,6 @@ export function Canvas() {
     [trashItem]
   );
 
-  // ── Build per-pile member lists ───────────────────────────────────────────
-
-  const itemsById = useMemo(() => {
-    const map: Record<string, FileMeta> = {};
-    for (const item of items) {
-      map[item.id] = item;
-    }
-    return map;
-  }, [items]);
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const canvasStyle: CSSProperties = {
@@ -541,41 +577,41 @@ export function Canvas() {
         }
       : undefined;
 
-  const selectionActionsStyle: CSSProperties = {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 10000,
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "8px 10px",
-    borderRadius: 10,
-    background: "rgba(17, 24, 39, 0.92)",
-    color: "#fff",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.25)",
-  };
-
   return (
     <div
       className="canvas-scroll"
       ref={canvasRef}
-      style={{ flex: 1, overflow: "auto", position: "relative" }}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
-      {selectedIds.length > 0 && (
-        <div style={selectionActionsStyle}>
-          <span>{selectedIds.length} selected</span>
-          <button className="ws-btn" onClick={handleCreatePileFromSelection}>
-            Pile from selection
-          </button>
+      <div className="canvas-overlay">
+        <div className="canvas-hint" aria-hidden="true">
+          <p className="canvas-hint__eyebrow">Studio board</p>
+          <p className="canvas-hint__text">
+            Drag freely, shift-click to collect, and keep piles virtual.
+          </p>
         </div>
-      )}
+
+        {selectedItems.length > 0 && (
+          <InspectorPanel
+            selectedItems={selectedItems}
+            onCreatePile={handleCreatePileFromSelection}
+            onOpen={() => void handleOpenSelection()}
+            onReveal={() => void handleRevealSelection()}
+            onRename={requestRenameForSelection}
+            onTrash={() => void handleTrashSelection()}
+          />
+        )}
+      </div>
 
       <div className="canvas-surface" style={canvasStyle}>
+        <div className="canvas-origin-marker" aria-hidden="true">
+          <span className="canvas-origin-marker__dot" />
+          Board origin
+        </div>
+
         {/* Pile backgrounds — rendered below items */}
         {Object.values(groups).map((group, idx) => {
           const members = group.itemIds
