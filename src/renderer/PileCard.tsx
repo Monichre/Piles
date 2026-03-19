@@ -20,6 +20,8 @@ export interface PileCardProps {
   group: GroupModel;
   /** All FileMeta items that belong to this pile (pre-filtered by caller). */
   members: FileMeta[];
+  selectedItemIds: ReadonlySet<string>;
+  renameRequest: { itemId: string; token: number } | null;
   onMove: (groupId: string, newPosition: Point) => void;
   onResize: (groupId: string, newSize: { width: number; height: number }) => void;
   onRename: (groupId: string, newName: string) => void;
@@ -61,6 +63,8 @@ const PILE_GRID_CELL_H = 88;
 export const PileCard = memo(function PileCard({
   group,
   members,
+  selectedItemIds,
+  renameRequest,
   onMove,
   onResize,
   onRename,
@@ -326,7 +330,10 @@ export const PileCard = memo(function PileCard({
                 item={item}
                 position={pos}
                 zIndex={1}
-                selected={false}
+                selected={selectedItemIds.has(item.id)}
+                renameRequestToken={
+                  renameRequest?.itemId === item.id ? renameRequest.token : undefined
+                }
                 onPointerDown={onItemPointerDown}
                 onDoubleClick={onItemDoubleClick}
                 onReveal={onItemReveal}

@@ -10,6 +10,8 @@ import {
   createPersistenceService,
   type PersistenceService
 } from "./persistence-service";
+import { createWatchService, type WatchService } from "./watch-service";
+import { createReconcileService } from "./reconcile-service";
 
 type IpcMainLike = {
   handle: (
@@ -27,13 +29,32 @@ type IpcRegistrationDependencies = {
   ipcMain: IpcMainLike;
   filesystemService: FilesystemService;
   persistenceService: PersistenceService;
+  watchService: WatchService;
+  reconcileService: ReturnType<typeof createReconcileService>;
+};
+
+type WatchReconcileDeps = {
+  watchService: WatchService;
+  reconcileService: ReturnType<typeof createReconcileService>;
 };
 
 export const registerIpcHandlers = ({
   ipcMain,
   filesystemService,
-  persistenceService
+  persistenceService,
+  watchService,
+  reconcileService
 }: IpcRegistrationDependencies) => {
+  // Keep track of the main window for sending folder changed events
+  let mainWindowSender: SenderLike | null = null;
+
+  // Set up the watch service to emit folder changes to the renderer
+  watchService.on("change", () => {
+    if (mainWindowSender) {
+      mainWindowSender.send(IPC_CHANNELS.folderChanged);
+    }
+  });
+
   const handlerEntries: Array<[string, (_event: unknown, ...args: unknown[]) => unknown]> = [
     [IPC_CHANNELS.selectFolder, () => filesystemService.selectFolder()],
     [
@@ -60,8 +81,18 @@ export const registerIpcHandlers = ({
         filesystemService.renameFile(targetPath as string, newName as string)
     ],
     [IPC_CHANNELS.trashFile, (_event, targetPath) => filesystemService.trashFile(targetPath as string)],
-    [IPC_CHANNELS.watchFolder, async () => undefined],
-    [IPC_CHANNELS.unwatchFolder, async () => undefined]
+    [
+      IPC_CHANNELS.watchFolder,
+      (_event, folderPath) => {
+        watchService.watch(folderPath as string);
+      }
+    ],
+    [
+      IPC_CHANNELS.unwatchFolder,
+      () => {
+        watchService.unwatch();
+      }
+    ]
   ];
 
   for (const [channel, listener] of handlerEntries) {
@@ -70,6 +101,9 @@ export const registerIpcHandlers = ({
   }
 
   return {
+    setMainWindowSender: (sender: SenderLike) => {
+      mainWindowSender = sender;
+    },
     emitFolderChanged: (sender: SenderLike) => {
       sender.send(IPC_CHANNELS.folderChanged);
     }
@@ -91,10 +125,16 @@ export const registerDefaultIpcHandlers = () => {
   const persistenceService = createPersistenceService({
     appDataPath: app.getPath("userData")
   });
+  const watchService = createWatchService();
+  const reconcileService = createReconcileService({
+    getFolderItems: filesystemService.getFolderItems
+  });
 
   return registerIpcHandlers({
     ipcMain,
     filesystemService,
-    persistenceService
+    persistenceService,
+    watchService,
+    reconcileService
   });
 };

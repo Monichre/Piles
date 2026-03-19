@@ -67,6 +67,31 @@ export interface PilesActions {
   addItemToGroup: (itemId: string, groupId: string) => void;
   /** Remove an item from its current group (sets ItemLayout.groupId to null). */
   removeItemFromGroup: (itemId: string) => void;
+
+  // ── Watch/Sync actions ─────────────────────────────────────────────────
+  /** Start watching the current folder for external changes. */
+  startWatching: () => Promise<void>;
+  /** Stop watching the current folder. */
+  stopWatching: () => Promise<void>;
+  /**
+   * Rescan folder and reconcile persisted layout with live filesystem state.
+   * Called automatically when folder changes are detected, but can also be
+   * triggered manually.
+   */
+  rescanFolder: () => Promise<void>;
+
+  // ── Auto Group action ──────────────────────────────────────────────────
+  /**
+   * Group items into piles based on deterministic file type rules.
+   * This does NOT move files on disk — purely creates visual groupings.
+   * Grouping rules:
+   *   - Images (jpg, jpeg, png, gif, webp, svg, bmp, heic) -> "Images"
+   *   - Documents (pdf, doc, docx, txt, rtf, xls, xlsx, ppt, pptx) -> "Documents"
+   *   - Installers (dmg, pkg, app) -> "Installers"
+   *   - Archives (zip, rar, 7z, tar, gz) -> "Archives"
+   *   - Everything else (including folders) -> "Misc"
+   */
+  autoGroup: () => Promise<void>;
 }
 
 export type PilesStore = PilesState & PilesActions;
@@ -458,6 +483,200 @@ export function createStore(api: PilesAPI) {
         },
       });
     },
+
+    // ── Watch/Sync actions ─────────────────────────────────────────────────
+
+    startWatching: async () => {
+      const { folderPath } = get();
+      if (!folderPath) return;
+      await api.watchFolder(folderPath);
+    },
+
+    stopWatching: async () => {
+      await api.unwatchFolder();
+    },
+
+    rescanFolder: async () => {
+      const { folderPath, workspace } = get();
+      if (!folderPath || !workspace) return;
+
+      // Fetch fresh file list
+      const liveItems = await api.getFolderItems(folderPath);
+      const liveIds = new Set(liveItems.map((item) => item.id));
+      const persistedIds = new Set(Object.keys(workspace.itemLayouts));
+
+      // Reconcile: build new items list and layouts
+      // - New items: exist in live but not in persisted
+      // - Surviving items: exist in both
+      // - Removed items: exist in persisted but not in live (rename => old path removed)
+
+      const nextItems = liveItems;
+      const nextItemLayouts = { ...workspace.itemLayouts };
+      const nextGroups = { ...workspace.groups };
+
+      // Remove stale layout entries (files deleted or renamed externally)
+      for (const persistedId of persistedIds) {
+        if (!liveIds.has(persistedId)) {
+          delete nextItemLayouts[persistedId];
+        }
+      }
+
+      // Update groups to remove stale itemIds
+      for (const [groupId, group] of Object.entries(nextGroups)) {
+        nextGroups[groupId] = {
+          ...group,
+          itemIds: group.itemIds.filter((itemId) => liveIds.has(itemId)),
+        };
+      }
+
+      set({
+        items: nextItems,
+        workspace: {
+          ...workspace,
+          itemLayouts: nextItemLayouts,
+          groups: nextGroups,
+        },
+      });
+
+      // Persist the reconciled state
+      await get().saveWorkspace();
+    },
+
+    // ── Auto Group action ─────────────────────────────────────────────────
+
+    autoGroup: async () => {
+      const { items, workspace } = get();
+      if (!workspace || items.length === 0) return;
+
+      // Define grouping rules: extension -> group name
+      // Note: extensions are case-insensitive, we'll normalize to lowercase
+      const extensionGroups: Record<string, string[]> = {
+        Images: ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "heic", "tiff", "ico"],
+        Documents: ["pdf", "doc", "docx", "txt", "rtf", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "pages", "numbers", "key"],
+        Installers: ["dmg", "pkg", "app", "exe", "msi", "deb", "rpm"],
+        Archives: ["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso"],
+      };
+
+      // Build a map: itemId -> group name
+      const itemToGroupName: Record<string, string> = {};
+      
+      for (const item of items) {
+        // Folders go to "Misc" (or we can skip them)
+        if (item.isDirectory) {
+          // Determine folder type or skip - for now, all folders go to Misc
+          itemToGroupName[item.id] = "Misc";
+          continue;
+        }
+        
+        // Determine group by extension
+        const ext = item.extension?.toLowerCase() ?? "";
+        let groupName: string | null = null;
+        
+        // Check each category
+        for (const [category, extensions] of Object.entries(extensionGroups)) {
+          if (extensions.includes(ext)) {
+            groupName = category;
+            break;
+          }
+        }
+        
+        // Default to Misc if no match
+        itemToGroupName[item.id] = groupName ?? "Misc";
+      }
+
+      // Collect items by group name for pile positioning
+      const groupItems: Record<string, string[]> = {};
+      for (const [itemId, groupName] of Object.entries(itemToGroupName)) {
+        if (!groupItems[groupName]) {
+          groupItems[groupName] = [];
+        }
+        groupItems[groupName].push(itemId);
+      }
+
+      // Remove existing groups and re-create based on categories
+      // First, clear all existing groups (release items to canvas)
+      const nextLayouts = { ...workspace.itemLayouts };
+      for (const layout of Object.values(nextLayouts)) {
+        layout.groupId = null;
+      }
+
+      const nextGroups: Record<string, GroupModel> = {};
+
+      // Calculate pile positions - start from the top-left and cascade down
+      const pileWidth = 280;
+      const pileHeight = 240;
+      const pilePadding = 20;
+      const startX = 60;
+      const startY = 60;
+      const maxPilesPerRow = 4;
+
+      // Get existing group positions if any to maintain some stability
+      const existingGroupPositions = new Map<string, Point>();
+      for (const group of Object.values(workspace.groups)) {
+        existingGroupPositions.set(group.name, group.position);
+      }
+
+      // Process groups in a consistent order
+      const groupNames = Object.keys(groupItems).sort();
+      let pileIndex = 0;
+
+      for (const groupName of groupNames) {
+        const itemIds = groupItems[groupName];
+        if (itemIds.length === 0) continue;
+
+        // Determine pile position - use existing position if available, otherwise calculate
+        let position: Point;
+        if (existingGroupPositions.has(groupName)) {
+          position = existingGroupPositions.get(groupName)!;
+        } else {
+          const col = pileIndex % maxPilesPerRow;
+          const row = Math.floor(pileIndex / maxPilesPerRow);
+          position = {
+            x: startX + col * (pileWidth + pilePadding),
+            y: startY + row * (pileHeight + pilePadding),
+          };
+          pileIndex++;
+        }
+
+        // Create the group
+        const groupId = `group-${groupName.toLowerCase()}-${Date.now()}`;
+        const group: GroupModel = {
+          id: groupId,
+          name: groupName,
+          position,
+          size: { width: pileWidth, height: pileHeight },
+          collapsed: false,
+          itemIds: [...itemIds],
+        };
+
+        nextGroups[groupId] = group;
+
+        // Update item layouts to reference this group
+        for (const itemId of itemIds) {
+          if (nextLayouts[itemId]) {
+            nextLayouts[itemId].groupId = groupId;
+          } else {
+            nextLayouts[itemId] = {
+              id: itemId,
+              position: { x: 0, y: 0 },
+              groupId,
+              zIndex: 0,
+            };
+          }
+        }
+      }
+
+      set({
+        workspace: {
+          ...workspace,
+          groups: nextGroups,
+          itemLayouts: nextLayouts,
+        },
+      });
+
+      // Persist the grouped state
+      await get().saveWorkspace();
+    },
   }));
 }
 
@@ -473,6 +692,10 @@ let _store: ReturnType<typeof createStore> | undefined;
 export function getStore(): ReturnType<typeof createStore> {
   if (_store === undefined) {
     _store = createStore(window.piles);
+    // Expose store globally for E2E testing
+    if (typeof window !== "undefined") {
+      (window as any).__PILES_STORE__ = _store;
+    }
   }
   return _store;
 }

@@ -3,3 +3,6 @@ dist
 dist-electron
 coverage
 .DS_Store
+
+*storybook.log
+storybook-static

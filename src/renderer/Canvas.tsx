@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type CSSProperties,
   type PointerEvent,
 } from "react";
@@ -87,6 +88,23 @@ function hitTestGroups(
   return null;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const tagName = target.tagName;
+  return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -103,6 +121,7 @@ export function Canvas() {
     store,
     (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>)
   );
+  const createGroup = useStore(store, (s) => s.createGroup);
   const updateItemLayouts = useStore(store, (s) => s.updateItemLayouts);
   const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
   const updateGroup = useStore(store, (s) => s.updateGroup);
@@ -117,6 +136,10 @@ export function Canvas() {
 
   const selection = useSelection();
   const drag = useDrag();
+  const [renameRequest, setRenameRequest] = useState<{
+    itemId: string;
+    token: number;
+  } | null>(null);
 
   // Pre-compute default positions for items without a saved layout.
   const defaultPositions = useMemo(
@@ -130,6 +153,43 @@ export function Canvas() {
   useEffect(() => {
     selectionRef.current = selection.selectedIds;
   }, [selection.selectedIds]);
+
+  const selectedIds = useMemo(
+    () => Array.from(selection.selectedIds),
+    [selection.selectedIds]
+  );
+
+  const clearSelection = useCallback(() => {
+    selectionRef.current = new Set();
+    selection.deselectAll();
+  }, [selection]);
+
+  const handleCreatePileFromSelection = useCallback(() => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const selectedPositions = selectedIds.map((id) => {
+      return (
+        itemLayouts[id]?.position ??
+        defaultPositions[id] ?? {
+          x: 0,
+          y: 0,
+        }
+      );
+    });
+
+    const minX = Math.min(...selectedPositions.map((position) => position.x));
+    const minY = Math.min(...selectedPositions.map((position) => position.y));
+
+    createGroup("Pile", selectedIds, {
+      x: clamp(minX - 24, 40, CANVAS_WIDTH - 280),
+      y: clamp(minY - 24, 40, CANVAS_HEIGHT - 220),
+    });
+
+    clearSelection();
+    void saveWorkspace();
+  }, [clearSelection, createGroup, defaultPositions, itemLayouts, saveWorkspace, selectedIds]);
 
   // ── Pointer down on item ─────────────────────────────────────────────────
 
@@ -323,17 +383,56 @@ export function Canvas() {
     }
   }, [drag, selection]);
 
-  // ── Keyboard deselect ────────────────────────────────────────────────────
+  // ── Keyboard actions ─────────────────────────────────────────────────────
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) {
+        return;
+      }
+
       if (e.key === "Escape") {
-        selection.deselectAll();
+        clearSelection();
+        return;
+      }
+
+      const currentSelection = Array.from(selectionRef.current);
+      if (currentSelection.length === 0) {
+        return;
+      }
+
+      if (e.key === "F2" && currentSelection.length === 1) {
+        e.preventDefault();
+        setRenameRequest((current) => ({
+          itemId: currentSelection[0],
+          token:
+            current?.itemId === currentSelection[0]
+              ? current.token + 1
+              : 1,
+        }));
+        return;
+      }
+
+      if (e.key === "Enter" && currentSelection.length === 1) {
+        e.preventDefault();
+        void openItem(currentSelection[0]);
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        clearSelection();
+        void (async () => {
+          for (const id of currentSelection) {
+            await trashItem(id);
+          }
+        })();
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selection]);
+  }, [clearSelection, openItem, trashItem]);
 
   // ── Pile action callbacks ─────────────────────────────────────────────────
 
@@ -442,16 +541,40 @@ export function Canvas() {
         }
       : undefined;
 
+  const selectionActionsStyle: CSSProperties = {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 10000,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    borderRadius: 10,
+    background: "rgba(17, 24, 39, 0.92)",
+    color: "#fff",
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.25)",
+  };
+
   return (
     <div
       className="canvas-scroll"
       ref={canvasRef}
-      style={{ flex: 1, overflow: "auto" }}
+      style={{ flex: 1, overflow: "auto", position: "relative" }}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
+      {selectedIds.length > 0 && (
+        <div style={selectionActionsStyle}>
+          <span>{selectedIds.length} selected</span>
+          <button className="ws-btn" onClick={handleCreatePileFromSelection}>
+            Pile from selection
+          </button>
+        </div>
+      )}
+
       <div className="canvas-surface" style={canvasStyle}>
         {/* Pile backgrounds — rendered below items */}
         {Object.values(groups).map((group, idx) => {
@@ -464,6 +587,8 @@ export function Canvas() {
               key={group.id}
               group={group}
               members={members}
+              selectedItemIds={selection.selectedIds}
+              renameRequest={renameRequest}
               // TODO: GroupModel has no zIndex field; stacking order is
               // determined by insertion order. Add a zIndex field to GroupModel
               // and a "bring to front" action to support user-controlled ordering.
@@ -505,6 +630,9 @@ export function Canvas() {
                 position={position}
                 zIndex={zIndex}
                 selected={selection.selectedIds.has(item.id)}
+                renameRequestToken={
+                  renameRequest?.itemId === item.id ? renameRequest.token : undefined
+                }
                 onPointerDown={handleItemPointerDown}
                 onDoubleClick={handleItemDoubleClick}
                 onReveal={handleItemReveal}

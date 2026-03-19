@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 
 import { Canvas } from "./Canvas";
@@ -24,6 +24,33 @@ export function WorkspaceShell() {
   const openFolder = useStore(store, (s) => s.openFolder);
   const createGroup = useStore(store, (s) => s.createGroup);
   const saveWorkspace = useStore(store, (s) => s.saveWorkspace);
+  const autoGroup = useStore(store, (s) => s.autoGroup);
+  const startWatching = useStore(store, (s) => s.startWatching);
+  const stopWatching = useStore(store, (s) => s.stopWatching);
+  const rescanFolder = useStore(store, (s) => s.rescanFolder);
+
+  // ── Watch folder for external changes ───────────────────────────────────────
+  // Set up folder watching when loaded, clean up on unmount
+  useEffect(() => {
+    if (status === "loaded" && folderPath) {
+      // Start watching the folder
+      void startWatching();
+
+      // Subscribe to folder change events from main process
+      const unsubscribe = window.piles.onFolderChanged(() => {
+        // Debounce: re-scan and reconcile on next tick
+        Promise.resolve().then(() => {
+          void rescanFolder();
+        });
+      });
+
+      // Clean up on unmount or when status changes
+      return () => {
+        unsubscribe();
+        void stopWatching();
+      };
+    }
+  }, [status, folderPath, startWatching, stopWatching, rescanFolder]);
 
   // ── Pile creation handler ──────────────────────────────────────────────────
 
@@ -32,11 +59,6 @@ export function WorkspaceShell() {
     createGroup("Pile", [], { x: 40, y: 40 });
     void saveWorkspace();
   }, [createGroup, saveWorkspace]);
-
-  // TODO: A "Group selection" button that seeds the pile with selected items
-  // requires access to selection state, which lives in Canvas. Either lift
-  // selection into the store or add a toolbar overlay inside Canvas.tsx once
-  // that is needed.
 
   // ── Idle ──────────────────────────────────────────────────────────────────
   if (status === "idle") {
@@ -114,6 +136,9 @@ export function WorkspaceShell() {
         <span className="ws-item-count" aria-label={`${items.length} items`}>
           {items.length} {items.length === 1 ? "item" : "items"}
         </span>
+        <button className="ws-btn ws-btn--primary" onClick={() => autoGroup()} title="Automatically group files by type">
+          Auto Group
+        </button>
         <button className="ws-btn" onClick={handleNewPile} title="Create an empty pile">
           New pile
         </button>

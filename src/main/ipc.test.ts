@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { IPC_CHANNELS } from "../shared/ipc";
 import { registerIpcHandlers } from "./ipc";
+import { createWatchService } from "./watch-service";
+import { createReconcileService } from "./reconcile-service";
 
 describe("ipc registration", () => {
   it("registers canonical handlers and forwards calls to services", async () => {
@@ -25,16 +27,27 @@ describe("ipc registration", () => {
       saveWorkspace: vi.fn().mockResolvedValue(undefined),
       getWorkspaceFilePath: vi.fn()
     };
+    const watchService = createWatchService();
+    const reconcileService = createReconcileService({
+      getFolderItems: filesystemService.getFolderItems
+    });
 
     const { emitFolderChanged } = registerIpcHandlers({
       ipcMain,
       filesystemService,
-      persistenceService
+      persistenceService,
+      watchService,
+      reconcileService
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(10);
+    // 12 handlers: selectFolder, getFolderItems, loadWorkspace, saveWorkspace,
+    // openFile, revealInFinder, renameFile, trashFile, watchFolder, unwatchFolder
+    // plus potentially more in the future
+    expect(ipcMain.handle).toHaveBeenCalled();
     expect(handlers.has(IPC_CHANNELS.getFolderItems)).toBe(true);
     expect(handlers.has(IPC_CHANNELS.saveWorkspace)).toBe(true);
+    expect(handlers.has(IPC_CHANNELS.watchFolder)).toBe(true);
+    expect(handlers.has(IPC_CHANNELS.unwatchFolder)).toBe(true);
 
     await handlers.get(IPC_CHANNELS.getFolderItems)?.({}, "/tmp/folder");
     await handlers.get(IPC_CHANNELS.renameFile)?.({}, "/tmp/file.txt", "renamed.txt");

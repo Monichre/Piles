@@ -21,6 +21,7 @@ export interface CanvasItemProps {
   position: Point;
   zIndex: number;
   selected: boolean;
+  renameRequestToken?: number;
   onPointerDown: (e: PointerEvent<HTMLDivElement>, id: string) => void;
   onDoubleClick?: (id: string) => void;
   onReveal?: (id: string) => void;
@@ -114,6 +115,7 @@ export const CanvasItem = memo(function CanvasItem({
   position,
   zIndex,
   selected,
+  renameRequestToken,
   onPointerDown,
   onDoubleClick,
   onReveal,
@@ -168,6 +170,12 @@ export const CanvasItem = memo(function CanvasItem({
     setDraftName(item.name);
     setEditing(true);
   }, [item.name]);
+
+  useEffect(() => {
+    if (renameRequestToken !== undefined) {
+      startEditing();
+    }
+  }, [renameRequestToken, startEditing]);
 
   const commitRename = useCallback(async () => {
     if (renameInFlightRef.current) return;

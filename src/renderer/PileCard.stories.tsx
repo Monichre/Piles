@@ -72,6 +72,8 @@ export const Default: Story = {
   args: {
     group: mockGroup,
     members: mockMembers,
+    selectedItemIds: new Set<string>(),
+    renameRequest: null,
     canvasEl: null,
     onMove: () => {},
     onResize: () => {},
@@ -90,6 +92,8 @@ export const Collapsed: Story = {
   args: {
     group: { ...mockGroup, collapsed: true },
     members: mockMembers,
+    selectedItemIds: new Set<string>(),
+    renameRequest: null,
     canvasEl: null,
     onMove: () => {},
     onResize: () => {},
@@ -108,6 +112,8 @@ export const Empty: Story = {
   args: {
     group: { ...mockGroup, name: 'Empty Pile', itemIds: [] },
     members: [],
+    selectedItemIds: new Set<string>(),
+    renameRequest: null,
     canvasEl: null,
     onMove: () => {},
     onResize: () => {},

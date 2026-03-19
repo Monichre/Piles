@@ -34,9 +34,9 @@ It is intended for `subagent-driven-development`.
 | T-008 | Canvas Agent | T-007 | Item render, selection, marquee, drag, persistence work |
 | T-009 | Groups Agent | T-008 | Piles render and membership flows work |
 | T-010 | Canvas Agent | T-008, T-006 | File action UI wiring works |
-| T-011 | Sync Agent | T-009, T-010 | Watch, rescan, and reconcile flow works |
-| T-012 | Groups Agent | T-009 | Auto Group works deterministically |
-| T-013 | QA Agent | T-011, T-012 | Acceptance and contract review complete |
+| T-011 | Sync Agent | T-009, T-010 | Watch, rescan, and reconcile flow works ✅ |
+| T-012 | Groups Agent | T-009 | Auto Group works deterministically ✅ |
+| T-013 | QA Agent | T-011, T-012 | Acceptance and contract review complete ✅ |
 
 ## Task Packets
 
@@ -264,7 +264,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-011 Implement watch, rescan, and reconcile flow
 
-- Status: pending
+- Status: complete
 - Owner: Sync Agent
 - Depends on: T-009, T-010
 - Source of truth:
@@ -289,7 +289,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-012 Implement Auto Group
 
-- Status: pending
+- Status: complete
 - Owner: Groups Agent
 - Depends on: T-009
 - Source of truth:
@@ -309,7 +309,7 @@ It is intended for `subagent-driven-development`.
 
 ### T-013 Run final acceptance and contract review
 
-- Status: pending
+- Status: complete
 - Owner: QA Agent
 - Depends on: T-011, T-012
 - Source of truth:
