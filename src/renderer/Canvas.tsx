@@ -10,6 +10,7 @@ import {
 import { useStore } from "zustand";
 
 import type { FileMeta, GroupModel, ItemLayout, Point } from "../shared/types";
+import { buildFallbackPositions } from "./canvas-layout";
 import { CanvasItem } from "./CanvasItem";
 import { InspectorPanel } from "./InspectorPanel";
 import { PileCard } from "./PileCard";
@@ -32,25 +33,6 @@ const ITEM_BASE_Z = 100;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Build a map of default (auto-grid) positions for all items that don't have
- * a saved layout. Items with a layout are not included.
- */
-function buildDefaultPositions(
-  items: FileMeta[],
-  itemLayouts: Record<string, ItemLayout>
-): Record<string, Point> {
-  const defaults: Record<string, Point> = {};
-  let gridIndex = 0;
-  for (const item of items) {
-    if (!itemLayouts[item.id]) {
-      defaults[item.id] = defaultPositionForIndex(gridIndex);
-      gridIndex++;
-    }
-  }
-  return defaults;
-}
 
 /**
  * Translate a page-relative pointer event into a canvas-relative point,
@@ -144,7 +126,7 @@ export function Canvas() {
 
   // Pre-compute default positions for items without a saved layout.
   const defaultPositions = useMemo(
-    () => buildDefaultPositions(items, itemLayouts),
+    () => buildFallbackPositions(items, itemLayouts),
     [items, itemLayouts]
   );
 
