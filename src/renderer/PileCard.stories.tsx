@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { expect } from 'storybook/test';
 import { PileCard } from './PileCard';
 import type { FileMeta, GroupModel } from '../shared/types';
 
@@ -125,5 +126,30 @@ export const Empty: Story = {
     onItemReveal: () => {},
     onItemRename: async () => {},
     onItemTrash: () => {},
+  },
+};
+
+export const DropTarget: Story = {
+  args: {
+    group: mockGroup,
+    members: mockMembers,
+    selectedItemIds: new Set<string>(),
+    renameRequest: null,
+    canvasEl: null,
+    isDropTarget: true,
+    onMove: () => {},
+    onResize: () => {},
+    onRename: () => {},
+    onCollapse: () => {},
+    onDelete: () => {},
+    onItemPointerDown: () => {},
+    onItemDoubleClick: () => {},
+    onItemReveal: () => {},
+    onItemRename: async () => {},
+    onItemTrash: () => {},
+  },
+  play: async ({ canvasElement }) => {
+    const pile = canvasElement.querySelector('.pile-card');
+    await expect(pile).toHaveClass('pile-card--drop-target');
   },
 };

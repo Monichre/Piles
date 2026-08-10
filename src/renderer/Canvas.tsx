@@ -116,6 +116,7 @@ export function Canvas() {
   const trashItem = useStore(store, (s) => s.trashItem);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
 
   const selection = useSelection();
   const drag = useDrag();
@@ -123,6 +124,7 @@ export function Canvas() {
     itemId: string;
     token: number;
   } | null>(null);
+  const [hoverDropGroupId, setHoverDropGroupId] = useState<string | null>(null);
 
   // Pre-compute default positions for items without a saved layout.
   const defaultPositions = useMemo(
@@ -281,8 +283,11 @@ export function Canvas() {
   const handleCanvasPointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
-      // Only if the event target is the canvas itself (not an item).
-      if ((e.target as Element) !== canvasRef.current) return;
+      const target = e.target as Element;
+      const isBlankCanvasHit =
+        target === canvasRef.current ||
+        target === surfaceRef.current;
+      if (!isBlankCanvasHit) return;
 
       selection.deselectAll();
 
@@ -306,6 +311,7 @@ export function Canvas() {
 
       if (drag.isDragging) {
         drag.moveDrag(pt);
+        setHoverDropGroupId(hitTestGroups(pt, groups));
         return;
       }
 
@@ -313,7 +319,7 @@ export function Canvas() {
         selection.updateMarquee(pt);
       }
     },
-    [drag, selection]
+    [drag, groups, selection]
   );
 
   // ── Pointer up ────────────────────────────────────────────────────────────
@@ -373,6 +379,7 @@ export function Canvas() {
           // Persist asynchronously — don't block the pointer event.
           void saveWorkspace();
         }
+        setHoverDropGroupId(null);
         return;
       }
 
@@ -417,6 +424,7 @@ export function Canvas() {
     if (drag.isDragging) {
       drag.endDrag();
     }
+    setHoverDropGroupId(null);
     if (selection.marquee !== null) {
       selection.commitMarquee();
     }
@@ -569,31 +577,17 @@ export function Canvas() {
       onPointerCancel={handlePointerCancel}
     >
       <div className="canvas-overlay">
-        <div className="canvas-hint" aria-hidden="true">
-          <p className="canvas-hint__eyebrow">Studio board</p>
-          <p className="canvas-hint__text">
-            Drag freely, shift-click to collect, and keep piles virtual.
-          </p>
-        </div>
-
-        {selectedItems.length > 0 && (
-          <InspectorPanel
-            selectedItems={selectedItems}
-            onCreatePile={handleCreatePileFromSelection}
-            onOpen={() => void handleOpenSelection()}
-            onReveal={() => void handleRevealSelection()}
-            onRename={requestRenameForSelection}
-            onTrash={() => void handleTrashSelection()}
-          />
-        )}
+        <InspectorPanel
+          selectedItems={selectedItems}
+          onCreatePile={handleCreatePileFromSelection}
+          onOpen={() => void handleOpenSelection()}
+          onReveal={() => void handleRevealSelection()}
+          onRename={requestRenameForSelection}
+          onTrash={() => void handleTrashSelection()}
+        />
       </div>
 
-      <div className="canvas-surface" style={canvasStyle}>
-        <div className="canvas-origin-marker" aria-hidden="true">
-          <span className="canvas-origin-marker__dot" />
-          Board origin
-        </div>
-
+      <div className="canvas-surface" style={canvasStyle} ref={surfaceRef}>
         {/* Pile backgrounds — rendered below items */}
         {Object.values(groups).map((group, idx) => {
           const members = group.itemIds
@@ -611,6 +605,7 @@ export function Canvas() {
               // determined by insertion order. Add a zIndex field to GroupModel
               // and a "bring to front" action to support user-controlled ordering.
               zIndex={PILE_BASE_Z + idx}
+              isDropTarget={hoverDropGroupId === group.id}
               canvasEl={canvasRef.current}
               onMove={handlePileMove}
               onResize={handlePileResize}

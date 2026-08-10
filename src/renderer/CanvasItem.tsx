@@ -54,6 +54,11 @@ interface CtxMenuProps {
 function CtxMenu({ x, y, onOpen, onReveal, onRename, onTrash, onClose }: CtxMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // Keyboard-opened menus should move focus into the menu immediately.
+  useEffect(() => {
+    ref.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
+  }, []);
+
   // Close on click-outside.
   useEffect(() => {
     const handler = (e: globalThis.MouseEvent) => {
@@ -126,6 +131,7 @@ export const CanvasItem = memo(function CanvasItem({
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(item.name);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const itemRef = useRef<HTMLDivElement>(null);
 
   // Sync draft name when item.name changes externally, but only when not editing.
   useEffect(() => {
@@ -238,7 +244,48 @@ export const CanvasItem = memo(function CanvasItem({
 
   const handleCtxClose = useCallback(() => {
     setCtxMenu(null);
+
+    // Restore focus to the card after the menu unmounts. Inline rename keeps
+    // focus because its input is rendered inside the card and receives
+    // autoFocus before this callback runs.
+    requestAnimationFrame(() => {
+      if (!itemRef.current?.contains(document.activeElement)) {
+        itemRef.current?.focus();
+      }
+    });
   }, []);
+
+  const openContextMenuFromKeyboard = useCallback(() => {
+    const rect = itemRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+
+    setCtxMenu({
+      x: rect.right - 12,
+      y: rect.top + 12,
+    });
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (editing) {
+        return;
+      }
+
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleDoubleClick();
+        return;
+      }
+
+      if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+        e.preventDefault();
+        openContextMenuFromKeyboard();
+      }
+    },
+    [editing, handleDoubleClick, openContextMenuFromKeyboard]
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -246,23 +293,39 @@ export const CanvasItem = memo(function CanvasItem({
     <>
       <div
         className={`ci${selected ? " ci--selected" : ""}${item.kind === "folder" ? " ci--folder" : " ci--file"}`}
+        ref={itemRef}
         style={style}
         onPointerDown={handlePointerDown}
+        onKeyDown={handleKeyDown}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
         data-item-id={item.id}
         aria-label={item.name}
+        aria-pressed={selected}
         role="button"
         tabIndex={0}
       >
-        <div className="ci-topline" aria-hidden="true">
-          <span className="ci-badge">{badgeLabel}</span>
-          <span className="ci-topline__rule" />
-        </div>
-        <div className={`ci-preview ci-preview--${item.kind}`} aria-hidden="true">
-          <span className="ci-preview__line" />
-          <span className="ci-preview__line ci-preview__line--short" />
-        </div>
+        {item.kind === "folder" ? (
+          <div className="ci-folder-chrome" aria-hidden="true">
+            <div className="ci-folder-tab">
+              <span className="ci-badge">{badgeLabel}</span>
+            </div>
+            <div className="ci-folder-body">
+              <span className="ci-folder-papers" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="ci-topline" aria-hidden="true">
+              <span className="ci-badge">{badgeLabel}</span>
+              <span className="ci-topline__rule" />
+            </div>
+            <div className="ci-preview ci-preview--file" aria-hidden="true">
+              <span className="ci-preview__line" />
+              <span className="ci-preview__line ci-preview__line--short" />
+            </div>
+          </>
+        )}
         {editing ? (
           <input
             className="ci-name ci-name--editing"

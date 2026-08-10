@@ -1,0 +1,60 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport json, os\nparts = []\nfor f in ['AGENTS.md', 'docs/TODO.md', 'docs/RUNBOOK.md']:\n    if os.path.exists(f):\n        content = open(f).read()\n        parts.append(f'=== {f} ===\\n' + content[:1500])\nprint(json.dumps({'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': '\\n\\n'.join(parts)}}))\n\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c '\ninput=$(cat)\nfp=$(echo \"$input\" | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get(\\\"tool_input\\\",{}).get(\\\"file_path\\\",\\\"\\\"))\")\nif [[ \"$fp\" =~ \\.(ts|tsx)$ ]] && [[ ! \"$fp\" =~ node_modules ]] && [[ ! \"$fp\" =~ dist ]]; then\n  echo \"[typecheck] $fp\" >&2\n  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$repo_root\" && npm run typecheck 2>&1 | tail -30 >&2 || true\nfi\necho \"$input\"\n'",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c '\ninput=$(cat)\nfp=$(echo \"$input\" | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get(\\\"tool_input\\\",{}).get(\\\"file_path\\\",\\\"\\\"))\")\nif [[ \"$fp\" =~ \\.(ts|tsx|js|jsx|css)$ ]] && [[ ! \"$fp\" =~ node_modules ]] && [[ ! \"$fp\" =~ dist ]]; then\n  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$repo_root\" && npx prettier --write \"$fp\" 2>/dev/null || true\nfi\necho \"$input\"\n'",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c '\ninput=$(cat)\nfp=$(echo \"$input\" | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get(\\\"tool_input\\\",{}).get(\\\"file_path\\\",\\\"\\\"))\")\nif [[ \"$fp\" =~ \\.test\\.(ts|tsx)$ ]]; then\n  echo \"[test] Detected test file edit — running vitest\" >&2\n  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$repo_root\" && npx vitest run \"$fp\" 2>&1 | tail -20 >&2 || true\nfi\necho \"$input\"\n'",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c '\n# Summarize uncommitted changes for next session pickup\nrepo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\ncd \"$repo_root\" || exit 0\nif git rev-parse --git-dir >/dev/null 2>&1; then\n  changed=$(git diff --name-only HEAD 2>/dev/null | head -10)\n  if [ -n \"$changed\" ]; then\n    echo \"[handoff] Uncommitted changes: $changed\" >&2\n  fi\nfi\n'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

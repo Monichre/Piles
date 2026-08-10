@@ -60,7 +60,7 @@ export function WorkspaceShell() {
 
   const handleNewPile = useCallback(() => {
     // Place new empty pile in a visible default position.
-    createGroup("Pile", [], { x: 40, y: 40 });
+    createGroup("Pile", [], { x: 180, y: 120 });
     void saveWorkspace();
   }, [createGroup, saveWorkspace]);
 
