@@ -34,6 +34,8 @@ export interface PileCardProps {
   onItemTrash?: (id: string) => void;
   /** Base z-index for the pile background layer. */
   zIndex?: number;
+  /** True when the current drag would drop into this pile. */
+  isDropTarget?: boolean;
   /**
    * Reference to the scrollable canvas container element. Used to compute
    * canvas-relative pointer positions during header drag, consistent with
@@ -76,6 +78,7 @@ export const PileCard = memo(function PileCard({
   onItemRename,
   onItemTrash,
   zIndex = 0,
+  isDropTarget = false,
   canvasEl,
 }: PileCardProps) {
   const [editing, setEditing] = useState(false);
@@ -261,7 +264,7 @@ export const PileCard = memo(function PileCard({
 
   return (
     <div
-      className={`pile-card${group.collapsed ? " pile-card--collapsed" : ""}`}
+      className={`pile-card${group.collapsed ? " pile-card--collapsed" : ""}${isDropTarget ? " pile-card--drop-target" : ""}`}
       style={containerStyle}
       onPointerDown={handleBodyPointerDown}
     >

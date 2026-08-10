@@ -25,7 +25,40 @@ export function InspectorPanel({
   onTrash,
 }: InspectorPanelProps) {
   if (selectedItems.length === 0) {
-    return null;
+    return (
+      <aside
+        className="inspector-panel inspector-panel--empty"
+        aria-live="polite"
+        aria-label="Board guidance"
+      >
+        <div className="inspector-panel__header">
+          <p className="inspector-panel__eyebrow">Board guide</p>
+          <h2>Nothing selected</h2>
+          <p className="inspector-panel__lede">
+            Click a card to inspect it, or drag across the board to collect a
+            loose set into one working selection.
+          </p>
+        </div>
+
+        <div className="inspector-panel__empty-block">
+          <p className="inspector-panel__list-label">Quick moves</p>
+          <ul className="inspector-panel__shortcut-list">
+            <li>
+              <strong>Drag on empty board</strong>
+              <span>Start a marquee selection.</span>
+            </li>
+            <li>
+              <strong>Shift-click cards</strong>
+              <span>Build a selection without losing your place.</span>
+            </li>
+            <li>
+              <strong>Pile from selection</strong>
+              <span>Turn scattered references into a virtual stack.</span>
+            </li>
+          </ul>
+        </div>
+      </aside>
+    );
   }
 
   const isSingle = selectedItems.length === 1;

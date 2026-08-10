@@ -157,7 +157,7 @@ test.describe.serial("Piles Electron App E2E", () => {
     await expect(eyebrow).toContainText("Piles");
 
     const heading = mainWindow.locator("h1");
-    await expect(heading).toContainText("Drop a folder to begin");
+    await expect(heading).toContainText("Turn a folder into a working board");
 
     const openFolderButton = mainWindow.locator("button.ws-btn--primary");
     await expect(openFolderButton).toBeVisible();
@@ -606,6 +606,66 @@ test.describe.serial("Piles Electron App E2E", () => {
       delete (window as any).__restoreOpenItem;
     });
     console.log("✓ Enter opens the selected item");
+  });
+
+  test("16a. Keyboard context menu moves focus into the menu and back", async () => {
+    await loadFolderIntoApp(testFolderPath);
+
+    const item = mainWindow.locator('.ci[aria-label="test-document.txt"]');
+    await item.focus();
+    await mainWindow.keyboard.press("Shift+F10");
+
+    const menu = mainWindow.locator(".ctx-menu");
+    const openMenuItem = menu.getByRole("menuitem", { name: "Open" });
+    await expect(menu).toBeVisible();
+    await expect(openMenuItem).toBeFocused();
+
+    await mainWindow.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(item).toBeFocused();
+    console.log("✓ Keyboard context menu manages focus");
+  });
+
+  test("16b. Dragging a loose item highlights the active pile target", async () => {
+    await loadFolderIntoApp(testFolderPath);
+
+    const looseItems = mainWindow.locator(".canvas-surface > .ci");
+    expect(await looseItems.count()).toBeGreaterThan(1);
+
+    const pileCards = mainWindow.locator(".pile-card");
+    if ((await pileCards.count()) === 0) {
+      await looseItems.first().click({ force: true });
+      const createPileButton = mainWindow.getByRole("button", {
+        name: /pile from selection/i,
+      });
+      await expect(createPileButton).toBeVisible();
+      await createPileButton.click();
+    }
+
+    // Hit testing resolves overlapping piles by insertion order, so assert
+    // against the first pile—the same target the product will select.
+    const pile = pileCards.first();
+    const draggable = mainWindow.locator(".canvas-surface > .ci").first();
+    const pileBox = await pile.boundingBox();
+    const itemBox = await draggable.boundingBox();
+    expect(pileBox).not.toBeNull();
+    expect(itemBox).not.toBeNull();
+
+    await mainWindow.mouse.move(
+      itemBox!.x + itemBox!.width / 2,
+      itemBox!.y + itemBox!.height / 2
+    );
+    await mainWindow.mouse.down();
+    await mainWindow.mouse.move(
+      pileBox!.x + pileBox!.width / 2,
+      pileBox!.y + pileBox!.height / 2,
+      { steps: 8 }
+    );
+
+    await expect(pile).toHaveClass(/pile-card--drop-target/);
+    await mainWindow.mouse.up();
+    await expect(pile).not.toHaveClass(/pile-card--drop-target/);
+    console.log("✓ Dragging exposes and clears pile target feedback");
   });
 
   test("17. Auto Group button is visible in canvas mode", async () => {

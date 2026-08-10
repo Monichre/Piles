@@ -56,3 +56,12 @@ Follow the queue in `docs/TODO.md`.
 - Wave 6: auto-group and QA
 
 Do not start dependent work before upstream contract work is complete.
+
+## Autonomous Loop Protocol
+
+This app has a closed development loop.
+
+- `GOAL.md` (app root) — the current objective, done condition, and constraints. One goal at a time.
+- `/goal` (`.agents/skills/goal/SKILL.md`) — set or update the goal. Accepts a Linear ticket ID or inline text.
+- `/loop` (`.agents/skills/loop/SKILL.md`) — run the closed loop: plan → execute → verify → iterate → PR for human review.
+- Platforms without skill support: read `.agents/skills/loop/SKILL.md` and follow it manually.
