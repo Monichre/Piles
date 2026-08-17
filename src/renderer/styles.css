@@ -1,59 +1,51 @@
-:root {
-  color-scheme: dark;
-  font-family: "Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(151, 198, 255, 0.16), transparent 28%),
-    radial-gradient(circle at 82% 12%, rgba(244, 185, 107, 0.12), transparent 24%),
-    radial-gradient(circle at bottom, rgba(83, 110, 164, 0.12), transparent 32%),
-    #080a0d;
-  color: #f4f1ea;
-  --bg-panel: rgba(14, 18, 24, 0.82);
-  --bg-panel-strong: rgba(10, 13, 18, 0.92);
-  --stroke-soft: rgba(255, 255, 255, 0.08);
-  --stroke-strong: rgba(255, 255, 255, 0.16);
-  --text-main: #f4f1ea;
-  --text-muted: rgba(244, 241, 234, 0.68);
-  --text-faint: rgba(244, 241, 234, 0.45);
-  --cool: #97c6ff;
-  --warm: #f4b96b;
-}
+/* Hallmark · macrostructure: Workbench · genre: paper-craft
+ * theme: custom (paper #F4F4F0 · ink #1A1A18 · accent #FF6B00 warm ·
+ *        Caveat + Inter + Space Mono + Reenie Beanie)
+ * design-system: design.md · designed-as-app
+ * pre-emit critique: P5 H5 E5 S5 R4 V4
+ * contrast: pass · tokens: pass · motion: reduced-motion supported
+ *
+ * The workspace is a cartographer's desk. Every surface is paper, every
+ * mark is ink or graphite, every accent is orange. No cold greys, no glass,
+ * no floating panels. Cards are paper cutouts, piles are stacked paper,
+ * the canvas is the desk surface.
+ */
 
-* {
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource/caveat/400.css";
+@import "@fontsource/caveat/600.css";
+@import "@fontsource/caveat/700.css";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+@import "@fontsource/reenie-beanie/400.css";
+@import "../../tokens.css";
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+}
+
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background: transparent;
-  overflow: hidden;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(circle at center, black, transparent 88%);
-}
-
-#root {
-  min-height: 100vh;
-}
-
-code {
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -61,49 +53,42 @@ input,
 textarea,
 select {
   font: inherit;
+  color: inherit;
 }
 
-.eyebrow,
-.inspector-panel__eyebrow,
-.canvas-hint__eyebrow,
-.ws-brand-kicker,
-.ws-toolbar__label {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 0.68rem;
-  color: var(--cool);
+/* The empty-state path renders in <code> (see WorkspaceShell.tsx). It is a
+   filesystem path, so it shares the toolbar path's monospace treatment rather
+   than inheriting Inter. */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
-.lede,
-.inspector-panel__lede {
+h1,
+h2,
+h3 {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1.6;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-display);
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
+
+/* ===========================================================================
+   Shell
+   =========================================================================== */
 
 .ws-shell {
-  position: relative;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.ws-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 15% 18%, rgba(151, 198, 255, 0.12), transparent 22%),
-    radial-gradient(circle at 82% 16%, rgba(244, 185, 107, 0.08), transparent 20%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%);
-}
-
-.ws-shell > * {
-  position: relative;
-  z-index: 1;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--color-paper);
+  background-image: radial-gradient(circle at 50% 50%, transparent 0%, var(--color-vignette) 100%);
 }
 
 .ws-shell--idle,
@@ -112,88 +97,119 @@ select {
 .ws-shell--loading {
   align-items: center;
   justify-content: center;
-  padding: 48px;
+  padding: var(--space-2xl);
 }
 
+/* The dot grid is the board's measurement substrate, not decoration — items
+   are positioned by coordinate on it. It is drawn only on entry states and the
+   canvas, never behind chrome. */
+.ws-shell--idle,
+.ws-shell--empty,
+.ws-shell--loading,
+.ws-shell--error {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0%, var(--color-vignette) 100%),
+    radial-gradient(var(--color-grid) 1px, transparent 1px);
+  background-size: 100% 100%, var(--grid-size) var(--grid-size);
+}
+
+/* ── Entry states ───────────────────────────────────────────────────────── */
+
 .ws-prompt {
-  width: min(100%, 580px);
+  width: min(100%, 30rem);
 }
 
 .ws-prompt-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 34px 34px 30px;
-  border: 1px solid var(--stroke-soft);
-  border-radius: 30px;
-  background: linear-gradient(180deg, rgba(18, 22, 28, 0.88), rgba(11, 14, 19, 0.92));
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-paper-2);
+  box-shadow: var(--shadow-lg);
 }
 
-.ws-prompt-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.12), transparent 45%, rgba(244, 185, 107, 0.08));
-}
-
-.ws-prompt-card > * {
-  position: relative;
-  z-index: 1;
+/* The one legitimate eyebrow in the app: a state label stacked directly above
+   its headline, in the same column. Three of them exist, one per entry state,
+   and they never appear at the same time. */
+.eyebrow {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .ws-prompt h1 {
-  margin: 0;
-  font-size: clamp(2.2rem, 5vw, 3.6rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  font-size: var(--text-display-lg);
+  max-width: 20ch;
+  color: var(--color-ink);
 }
 
-.ws-prompt-actions,
-.ws-prompt-notes {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+.ws-prompt .lede {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--color-ink-2);
+  font-size: var(--text-md);
 }
 
 .ws-prompt-actions {
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.ws-prompt-notes {
+  display: flex;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  margin-top: var(--space-2xs);
 }
 
 .ws-note-pill {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-muted);
-  font-size: 0.78rem;
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
 }
 
 .ws-eyebrow--error {
-  color: #ff9a9a;
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  margin: 0;
 }
 
 .ws-status-label {
   margin: 0;
-  padding: 14px 18px;
-  border-radius: 999px;
-  border: 1px solid var(--stroke-soft);
-  background: var(--bg-panel);
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  backdrop-filter: blur(14px);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-2);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-md);
 }
 
+/* ===========================================================================
+   Toolbar
+   =========================================================================== */
+
 .ws-shell--canvas {
-  gap: 18px;
-  padding: 20px;
   overflow: hidden;
 }
 
@@ -201,60 +217,45 @@ select {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 16px;
-  padding: 16px 18px;
-  border: 1px solid var(--stroke-soft);
-  border-radius: 26px;
-  background: linear-gradient(180deg, rgba(18, 22, 28, 0.82), rgba(12, 15, 20, 0.78));
-  backdrop-filter: blur(18px);
-  box-shadow:
-    0 22px 60px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-paper-2);
+  box-shadow: var(--shadow-md);
 }
 
 .ws-toolbar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-xs);
   min-width: 0;
 }
 
 .ws-brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.22), rgba(244, 185, 107, 0.22));
-  color: #10131a;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-ink);
+  color: var(--color-paper-2);
 }
 
 .ws-brand-copy strong {
-  display: block;
-  font-size: 1.02rem;
-  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  font-size: var(--text-display-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
 }
 
-.ws-brand-kicker {
-  margin-bottom: 4px;
-  color: var(--text-faint);
-}
-
+/* The folder path is the toolbar's subject — it needs no "Active folder"
+   label above it. Space Mono already says "this is a path". */
 .ws-toolbar__folder-block {
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ws-toolbar__label {
-  color: var(--text-faint);
+  align-items: center;
 }
 
 .ws-folder-path {
@@ -262,173 +263,196 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.82rem;
-  color: var(--text-muted);
+  direction: rtl;
+  text-align: left;
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-ink-2);
 }
 
 .ws-toolbar__meta,
 .ws-toolbar__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: var(--space-2xs);
   justify-content: flex-end;
 }
 
 .ws-pill {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text-faint);
-  font-size: 0.76rem;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
 }
 
-.ws-pill--warm {
-  border-color: rgba(244, 185, 107, 0.24);
-  background: rgba(244, 185, 107, 0.12);
-  color: rgba(244, 185, 107, 0.94);
+.ws-pill strong {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
 }
 
 .ws-stage {
   flex: 1;
   min-height: 0;
   display: flex;
+  gap: var(--space-md);
 }
 
+/* ===========================================================================
+   Buttons — 8 states
+   =========================================================================== */
+
 .ws-btn {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-  color: var(--text-main);
-  font-size: 0.86rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
+  gap: var(--space-2xs);
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-2);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition:
-    transform 160ms ease,
-    background 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out);
 }
 
-.ws-btn:hover {
-  transform: translateY(-1px);
-  border-color: var(--stroke-strong);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
-  box-shadow:
-    0 12px 26px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+.ws-btn:hover:not(:disabled) {
+  background-color: var(--color-paper-3);
 }
 
+/* outline, not box-shadow: box-shadow would inherit the transition above and
+   the ring would fade in, leaving keyboard users blind for the first frames. */
 .ws-btn:focus-visible {
-  outline: none;
-  border-color: rgba(151, 198, 255, 0.9);
-  box-shadow:
-    0 0 0 3px rgba(151, 198, 255, 0.22),
-    0 12px 26px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
-.ws-btn:active {
-  transform: translateY(0);
+.ws-btn:active:not(:disabled) {
+  background-color: var(--color-paper-3);
+  transform: translateY(1px);
+}
+
+.ws-btn:disabled,
+.ws-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ws-btn--primary {
   border-color: transparent;
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.98), rgba(244, 185, 107, 0.92));
-  color: #10131a;
-  box-shadow: 0 16px 36px rgba(104, 140, 205, 0.22);
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
-.ws-btn--primary:hover {
-  box-shadow: 0 18px 42px rgba(104, 140, 205, 0.28);
+.ws-btn--primary:hover:not(:disabled),
+.ws-btn--primary:active:not(:disabled) {
+  background-color: var(--color-accent);
+  filter: brightness(0.92);
 }
 
 .ws-btn--danger {
-  border-color: rgba(255, 125, 125, 0.2);
-  background: rgba(255, 125, 125, 0.08);
-  color: #ffb3b3;
+  border-color: transparent;
+  background-color: var(--color-danger-wash);
+  color: var(--color-danger);
 }
+
+.ws-btn--danger:hover:not(:disabled),
+.ws-btn--danger:active:not(:disabled) {
+  background-color: var(--color-danger);
+  color: var(--color-accent-ink);
+}
+
+.ws-btn--quiet {
+  border-color: transparent;
+  background-color: transparent;
+}
+
+/* ===========================================================================
+   Filter pills — paper tags on the desk
+   =========================================================================== */
+
+.ws-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ws-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-2);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+
+.ws-filter:hover {
+  background-color: var(--color-paper-3);
+}
+
+.ws-filter:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ws-filter[aria-pressed="true"] {
+  border-color: transparent;
+  background-color: var(--color-ink);
+  color: var(--color-paper-2);
+}
+
+.ws-filter__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+   Canvas — the desk surface
+   =========================================================================== */
 
 .canvas-scroll {
+  position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
-  position: relative;
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(13, 16, 22, 0.9), rgba(9, 11, 16, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 24px 60px rgba(0, 0, 0, 0.35);
-}
-
-.canvas-scroll::before,
-.canvas-scroll::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.canvas-scroll::before {
-  background:
-    radial-gradient(circle at top left, rgba(151, 198, 255, 0.08), transparent 24%),
-    radial-gradient(circle at 80% 15%, rgba(244, 185, 107, 0.06), transparent 22%);
-}
-
-.canvas-scroll::after {
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-paper);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(rgba(0, 0, 0, 0.55), transparent 88%);
+    radial-gradient(circle at 50% 50%, transparent 0%, var(--color-vignette-soft) 100%),
+    radial-gradient(var(--color-grid) 1px, transparent 1px);
+  background-size: 100% 100%, var(--grid-size) var(--grid-size);
 }
 
-.canvas-overlay {
-  position: sticky;
-  top: 24px;
-  z-index: 10000;
-  height: 0;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  gap: 0;
-  padding: 24px;
-  pointer-events: none;
-}
-
-.canvas-overlay > * {
-  pointer-events: auto;
-}
-
-.canvas-hint {
-  max-width: 280px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 14, 19, 0.74);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
-}
-
-.canvas-hint__text {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.84rem;
-  line-height: 1.45;
+.canvas-scroll:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 .canvas-surface {
@@ -436,181 +460,599 @@ select {
   isolation: isolate;
 }
 
-.canvas-origin-marker {
+.canvas-marquee {
   position: absolute;
-  top: 26px;
-  left: 26px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 14, 19, 0.56);
-  backdrop-filter: blur(12px);
-  color: var(--text-faint);
-  font-size: 0.74rem;
-  letter-spacing: 0.04em;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent-wash);
+  pointer-events: none;
+  z-index: var(--z-overlay);
 }
 
-.canvas-origin-marker__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--warm);
-  box-shadow: 0 0 0 4px rgba(244, 185, 107, 0.12);
-}
+/* ===========================================================================
+   Canvas item — paper card with file-type visual
+   =========================================================================== */
 
-.inspector-panel {
-  width: min(340px, calc(100vw - 80px));
+.ci {
+  position: absolute;
+  width: 128px;
+  height: 148px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: linear-gradient(180deg, rgba(16, 19, 25, 0.88), rgba(9, 12, 17, 0.94));
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-md);
+  background-color: var(--tone-plain-bg);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    box-shadow var(--dur-short) var(--ease-out);
 }
 
-.inspector-panel--empty {
-  border-color: rgba(151, 198, 255, 0.12);
-  background: linear-gradient(180deg, rgba(14, 18, 24, 0.84), rgba(9, 12, 17, 0.92));
+.ci:active {
+  cursor: grabbing;
+}
+
+/* One hover signal: the card lifts slightly, like paper picked up from a
+   desk. Not a colour change — the shadow does the work. */
+.ci:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.ci:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ci--selected {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+
+.ci--selected .ci-visual {
+  background-color: var(--color-accent-wash);
+}
+
+/* Dragging state — the card is in flight, lifted off the desk. */
+.ci--dragging {
+  box-shadow: var(--shadow-drag);
+  border-color: var(--color-accent);
+  cursor: grabbing;
+}
+
+/* Filtered out: a filter pill is active and this card's category does not
+   match. It stays on the board so spatial context survives, but reads as
+   inert — dimmed and non-interactive until the filter clears. */
+.ci--dimmed {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+/* ── Visual area — the top portion of the card, file-type specific ─────── */
+
+.ci-visual {
+  height: 88px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-rule-soft);
+}
+
+/* ── Info area — filename and kind label at the bottom ─────────────────── */
+
+.ci-info {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-xs);
+}
+
+.ci-name {
+  flex: 1;
+  min-height: 0;
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.ci-meta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.3;
+  color: var(--color-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rename input matches the resting name exactly — same size, same line-height,
+   same box. The PRD requires inline rename "without layout jitter". */
+.ci-name--editing {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-2);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  outline: 2px solid var(--color-focus);
+  outline-offset: -1px;
+  cursor: text;
+}
+
+/* ── Extension badge — Space Mono, bottom-right of visual area ─────────── */
+
+.ci-ext {
+  position: absolute;
+  bottom: var(--space-2xs);
+  right: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  line-height: 1;
+  color: var(--color-ink-2);
+}
+
+/* ── Per-kind visual treatments ────────────────────────────────────────── */
+
+/* Folder: manila folder look — warm paper with a large folder icon */
+.ci--kind-folder .ci-visual {
+  background-color: var(--color-paper-3);
+}
+.ci-visual-folder {
+  color: var(--color-ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image: polaroid — white frame with a warm tint center and image icon */
+.ci--kind-image .ci-visual {
+  background-color: var(--tone-yellow-bg);
+}
+.ci-visual-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tone-yellow-fg);
+  width: 100%;
+  height: 100%;
+}
+
+/* Video: dark frame with a play circle, like a video thumbnail */
+.ci--kind-video .ci-visual {
+  background-color: var(--color-ink);
+}
+.ci-visual-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.ci-play-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-paper-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-paper-2);
+}
+.ci--kind-video .ci-ext {
+  color: var(--color-paper-2);
+  opacity: 0.7;
+}
+
+/* Audio: warm tint with a music icon and a waveform line */
+.ci--kind-audio .ci-visual {
+  background-color: var(--tone-yellow-bg);
+}
+.ci-visual-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  color: var(--tone-yellow-fg);
+  width: 100%;
+  height: 100%;
+}
+.ci-waveform {
+  width: 60px;
+  height: 12px;
+  background-image:
+    linear-gradient(to right,
+      var(--tone-yellow-fg) 1px, transparent 1px),
+    linear-gradient(to right,
+      transparent 1px, var(--tone-yellow-fg) 1px);
+  background-size: 6px 100%, 6px 100%;
+  background-position: 0 0, 3px 0;
+  opacity: 0.5;
+}
+
+/* Document: dog-eared paper — warm green tint with a document icon */
+.ci--kind-document .ci-visual {
+  background-color: var(--tone-green-bg);
+}
+.ci-visual-document {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tone-green-fg);
+  width: 100%;
+  height: 100%;
+}
+
+/* Code: index card with a colored stripe on the left edge */
+.ci--kind-code .ci-visual {
+  background-color: var(--tone-red-bg);
+}
+.ci-visual-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tone-red-fg);
+  width: 100%;
+  height: 100%;
+  border-left: 3px solid var(--tone-red-fg);
+}
+
+/* Archive: cardboard box look — warm brown-grey with an archive icon */
+.ci--kind-archive .ci-visual {
+  background-color: var(--color-paper-3);
+}
+.ci-visual-archive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-ink-2);
+  width: 100%;
+  height: 100%;
+}
+
+/* Other: plain white with just the extension badge */
+.ci--kind-other .ci-visual {
+  background-color: var(--color-paper-2);
+}
+.ci-visual-other {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Document tones — file kind carried by colour, warmed for paper ─────── */
+/* These are now applied to the visual area via the kind classes above.
+   The tone classes remain for the filter system and any legacy references. */
+
+.ci--tone-green {
+  background-color: var(--color-paper-2);
+}
+.ci--tone-yellow {
+  background-color: var(--color-paper-2);
+}
+.ci--tone-red {
+  background-color: var(--color-paper-2);
+}
+.ci--tone-plain {
+  background-color: var(--color-paper-2);
+}
+
+/* ===========================================================================
+   Pile — a stack of paper with a taped label
+   =========================================================================== */
+
+.pile-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-md);
+  background-color: var(--color-paper-3);
+  box-shadow: var(--shadow-md);
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    box-shadow var(--dur-short) var(--ease-out);
+}
+
+.pile-card--drop-target {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-wash);
+  box-shadow: var(--shadow-lg);
+}
+
+.pile-card--collapsed {
+  overflow: visible;
+}
+
+/* The pile header is a paper label taped across the top of the stack. */
+.pile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 36px;
+  flex-shrink: 0;
+  padding: 0 var(--space-2xs) 0 var(--space-xs);
+  border-bottom: 1px solid var(--color-rule-soft);
+  background-color: var(--color-paper-2);
+  cursor: grab;
+  user-select: none;
+}
+
+.pile-card--collapsed .pile-header {
+  border-bottom: none;
+}
+
+.pile-header:active {
+  cursor: grabbing;
+}
+
+/* Pile names are handwritten — Caveat, not Inter. This is the most visible
+   signal that the workspace is a desk, not a database. */
+.pile-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: var(--text-display-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+.pile-name--editing {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--space-3xs);
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-3);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-display-sm);
+  font-weight: 700;
+  outline: 2px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.pile-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-3);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.pile-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-ink-2);
+  font-size: var(--text-2xs);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+
+.pile-btn:hover {
+  background-color: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.pile-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.pile-btn--delete:hover {
+  background-color: var(--color-danger-wash);
+  color: var(--color-danger);
+}
+
+.pile-body {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  padding: var(--space-2xs);
+}
+
+/* Resize handle: a real button — focusable, labelled, and arrow-key
+   resizable. */
+.pile-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--color-ink-3);
+  cursor: se-resize;
+}
+
+.pile-resize::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-bottom-right-radius: var(--space-3xs);
+}
+
+.pile-resize:hover {
+  color: var(--color-accent);
+}
+
+.pile-resize:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  color: var(--color-accent);
+}
+
+/* ===========================================================================
+   Inspector — a paper panel with section labels
+   =========================================================================== */
+
+.inspector-panel {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  overflow-y: auto;
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-paper-2);
+  box-shadow: var(--shadow-md);
 }
 
 .inspector-panel__header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3xs);
 }
 
 .inspector-panel__header h2 {
-  margin: 0;
-  font-size: 1.4rem;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  font-size: var(--text-display-md);
 }
 
+.inspector-panel__lede {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: var(--text-xs);
+  max-width: 46ch;
+}
+
+/* One containment layer. Blocks are separated by a rule and space instead of
+   nested bordered cards. */
 .inspector-panel__hero {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  gap: var(--space-xs);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-rule-soft);
 }
 
 .inspector-panel__badge {
-  min-width: 58px;
-  height: 58px;
+  min-width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.2), rgba(244, 185, 107, 0.2));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-main);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.82rem;
+  flex-shrink: 0;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-paper-3);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .inspector-panel__hero-copy {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-3xs);
 }
 
-.inspector-panel__hero-copy strong,
-.inspector-panel__hero-copy span {
+.inspector-panel__hero-copy strong {
+  font-size: var(--text-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.inspector-panel__hero-copy strong {
-  font-size: 0.96rem;
-}
-
 .inspector-panel__hero-copy span {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  color: var(--color-ink-2);
+  font-size: var(--text-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspector-panel__list-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-xs);
 }
 
-.inspector-panel__empty-block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.inspector-panel__list-label,
-.inspector-panel__overflow {
+.inspector-panel__list-label {
   margin: 0;
-  color: var(--text-faint);
-  font-size: 0.74rem;
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
+.inspector-panel__list,
 .inspector-panel__shortcut-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.inspector-panel__shortcut-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.inspector-panel__shortcut-list strong {
-  font-size: 0.84rem;
-  color: var(--text-main);
-}
-
-.inspector-panel__shortcut-list span {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  line-height: 1.45;
-}
-
-.inspector-panel__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: var(--space-xs);
 }
 
 .inspector-panel__list li {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
 }
 
 .inspector-panel__list li span:first-child {
@@ -621,606 +1063,188 @@ select {
 }
 
 .inspector-panel__list li span:last-child {
-  color: var(--warm);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  flex-shrink: 0;
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.inspector-panel__shortcut-list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.inspector-panel__shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-ink-2);
+}
+
+.inspector-panel__shortcut-list strong {
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.inspector-panel__shortcut-list span {
+  color: var(--color-ink-2);
+  font-size: var(--text-2xs);
+  line-height: 1.45;
+}
+
+.inspector-panel__overflow {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: var(--text-2xs);
 }
 
 .inspector-panel__actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-2xs);
+  margin-top: auto;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-rule-soft);
 }
 
-.inspector-panel__actions .ws-btn--primary {
+.inspector-panel__actions .ws-btn--primary,
+.inspector-panel__actions .ws-btn--wide {
   grid-column: 1 / -1;
 }
 
-.ci {
-  position: absolute;
-  width: 96px;
-  height: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(21, 25, 32, 0.9), rgba(12, 14, 20, 0.92));
-  box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  cursor: default;
-  user-select: none;
-  overflow: hidden;
-  outline: none;
-  transition:
-    transform 140ms ease,
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.ci::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.08), transparent 55%, rgba(244, 185, 107, 0.08));
-}
-
-.ci:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.ci--selected {
-  border-color: rgba(151, 198, 255, 0.65);
-  background: linear-gradient(180deg, rgba(20, 30, 45, 0.95), rgba(11, 16, 24, 0.96));
-  box-shadow:
-    0 20px 38px rgba(77, 108, 167, 0.2),
-    0 0 0 1px rgba(151, 198, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.ci:focus-visible {
-  border-color: rgba(151, 198, 255, 0.92);
-  box-shadow:
-    0 0 0 3px rgba(151, 198, 255, 0.24),
-    0 20px 38px rgba(77, 108, 167, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Folder items: tab + body metaphor (distinct from file cards). */
-.ci--folder {
-  padding: 8px 8px 10px;
-  gap: 5px;
-  border-radius: 16px;
-  border-color: rgba(151, 198, 255, 0.22);
-  background: linear-gradient(180deg, rgba(18, 26, 38, 0.96), rgba(10, 16, 26, 0.98));
-  box-shadow:
-    0 12px 22px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.ci--folder::after {
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.12), transparent 50%, rgba(151, 198, 255, 0.05));
-}
-
-.ci--folder:hover {
-  border-color: rgba(151, 198, 255, 0.38);
-  box-shadow:
-    0 16px 30px rgba(40, 70, 120, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.ci--folder.ci--selected {
-  border-color: rgba(151, 198, 255, 0.72);
-  background: linear-gradient(180deg, rgba(22, 34, 52, 0.98), rgba(12, 20, 34, 0.99));
-  box-shadow:
-    0 0 0 2px rgba(151, 198, 255, 0.2),
-    0 18px 36px rgba(60, 100, 160, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.ci-folder-chrome {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.ci-folder-tab {
-  display: flex;
-  align-items: center;
-  max-width: 78%;
-  padding: 3px 8px 5px;
-  border-radius: 9px 11px 0 0;
-  border: 1px solid rgba(151, 198, 255, 0.42);
-  border-bottom: none;
-  background: linear-gradient(
-    180deg,
-    rgba(140, 188, 245, 0.55),
-    rgba(88, 132, 198, 0.32)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 -1px 0 rgba(0, 0, 0, 0.12);
-  z-index: 2;
-}
-
-.ci-folder-tab .ci-badge {
-  min-width: 0;
-  padding: 2px 6px;
-  font-size: 0.58rem;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.15);
-  color: rgba(255, 252, 245, 0.95);
-}
-
-.ci-folder-body {
-  position: relative;
-  width: 100%;
-  flex: 1 1 auto;
-  min-height: 34px;
-  margin-top: -1px;
-  border-radius: 0 12px 13px 13px;
-  border: 1px solid rgba(151, 198, 255, 0.32);
-  background: linear-gradient(
-    168deg,
-    rgba(100, 145, 205, 0.42) 0%,
-    rgba(55, 88, 138, 0.55) 42%,
-    rgba(28, 45, 72, 0.72) 100%
-  );
-  box-shadow:
-    inset 0 3px 10px rgba(0, 0, 0, 0.28),
-    inset 0 -2px 0 rgba(255, 255, 255, 0.05);
-  overflow: hidden;
-  z-index: 1;
-}
-
-.ci-folder-papers {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 7px;
-  bottom: 6px;
-  border-radius: 4px 4px 2px 2px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.06) 40%,
-    transparent 100%
-  );
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    2px 2px 0 rgba(0, 0, 0, 0.12);
-}
-
-.ci-folder-papers::before,
-.ci-folder-papers::after {
-  content: "";
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.ci-folder-papers::before {
-  top: 8px;
-}
-
-.ci-folder-papers::after {
-  top: 13px;
-  width: 72%;
-  opacity: 0.65;
-}
-
-.ci-topline,
-.ci-name,
-.ci-meta,
-.ci-preview {
-  position: relative;
-  z-index: 1;
-}
-
-.ci-topline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ci-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-main);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.ci--file .ci-badge {
-  border-color: rgba(244, 185, 107, 0.2);
-  background: rgba(244, 185, 107, 0.12);
-  color: rgba(244, 185, 107, 0.95);
-}
-
-.ci-topline__rule {
-  flex: 1;
-  height: 1px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28), transparent);
-}
-
-.ci-preview {
-  height: 22px;
-  position: relative;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.04);
-  overflow: hidden;
-}
-
-.ci-preview::before,
-.ci-preview::after,
-.ci-preview__line {
-  position: absolute;
-}
-
-.ci-preview__line {
-  left: 12px;
-  right: 12px;
-  height: 2px;
-  bottom: 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.26);
-}
-
-.ci-preview__line--short {
-  right: 24px;
-  bottom: 12px;
-  opacity: 0.55;
-}
-
-.ci-preview--file::before {
-  content: "";
-  inset: 5px 12px 5px 14px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(244, 185, 107, 0.3), rgba(244, 185, 107, 0.08));
-  border: 1px solid rgba(244, 185, 107, 0.18);
-}
-
-.ci-preview--file::after {
-  content: "";
-  top: 5px;
-  right: 12px;
-  width: 10px;
-  height: 10px;
-  border-top-right-radius: 6px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(244, 185, 107, 0.28));
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
-}
-
-.ci-name {
-  font-size: 0.79rem;
-  line-height: 1.3;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--text-main);
-  text-align: left;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
-}
-
-.ci-meta {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: rgba(244, 241, 234, 0.64);
-}
-
-.ci-name--editing {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(151, 198, 255, 0.42);
-  border-radius: 10px;
-  color: var(--text-main);
-  font-size: 0.71rem;
-  padding: 4px 6px;
-  outline: none;
-  text-align: left;
-  cursor: text;
-}
-
-.pile-card {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid rgba(244, 185, 107, 0.2);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(24, 20, 14, 0.34), rgba(17, 15, 12, 0.2));
-  backdrop-filter: blur(8px);
-  box-shadow:
-    0 20px 46px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background 140ms ease;
-}
-
-.pile-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(244, 185, 107, 0.08), transparent 48%, rgba(151, 198, 255, 0.05));
-}
-
-.pile-card:hover {
-  border-color: rgba(244, 185, 107, 0.36);
-  box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-}
-
-.pile-card--drop-target {
-  border-color: rgba(151, 198, 255, 0.7);
-  background: linear-gradient(180deg, rgba(22, 28, 38, 0.46), rgba(13, 17, 24, 0.28));
-  box-shadow:
-    0 0 0 3px rgba(151, 198, 255, 0.16),
-    0 28px 56px rgba(37, 58, 97, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.pile-card--drop-target::before {
-  background: linear-gradient(135deg, rgba(151, 198, 255, 0.16), transparent 48%, rgba(244, 185, 107, 0.08));
-}
-
-.pile-card--collapsed {
-  overflow: visible;
-}
-
-.pile-card--collapsed .pile-header {
-  border-bottom: none;
-}
-
-.pile-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  height: 36px;
-  flex-shrink: 0;
-  cursor: grab;
-  background: linear-gradient(90deg, rgba(244, 185, 107, 0.14), rgba(244, 185, 107, 0.06));
-  border-bottom: 1px solid rgba(244, 185, 107, 0.16);
-  user-select: none;
-}
-
-.pile-header:active {
-  cursor: grabbing;
-}
-
-.pile-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: rgba(255, 241, 214, 0.92);
-}
-
-.pile-name--editing {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(244, 185, 107, 0.35);
-  border-radius: 10px;
-  color: var(--text-main);
-  font-size: 0.8rem;
-  padding: 0 10px;
-  outline: none;
-}
-
-.pile-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(244, 185, 107, 0.14);
-  border: 1px solid rgba(244, 185, 107, 0.16);
-  color: rgba(255, 225, 174, 0.76);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.66rem;
-}
-
-.pile-btn {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(247, 248, 251, 0.52);
-  cursor: pointer;
-  font-size: 0.72rem;
-  line-height: 1;
-  transition: color 80ms ease, background 80ms ease;
-}
-
-.pile-btn:hover {
-  color: rgba(247, 248, 251, 0.94);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.pile-btn:focus-visible {
-  outline: none;
-  color: rgba(247, 248, 251, 0.98);
-  background: rgba(151, 198, 255, 0.14);
-  box-shadow: 0 0 0 3px rgba(151, 198, 255, 0.2);
-}
-
-.pile-btn--delete:hover {
-  color: #ff8c8c;
-}
-
-.pile-body {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.pile-body::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  pointer-events: none;
-  border-radius: 16px;
-  border: 1px dashed rgba(244, 185, 107, 0.14);
-}
-
-.pile-resize {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  width: 18px;
-  height: 18px;
-  cursor: se-resize;
-  opacity: 0.46;
-  background: linear-gradient(
-    135deg,
-    transparent 42%,
-    rgba(244, 185, 107, 0.7) 42%,
-    rgba(244, 185, 107, 0.7) 52%,
-    transparent 52%,
-    transparent 64%,
-    rgba(244, 185, 107, 0.7) 64%,
-    rgba(244, 185, 107, 0.7) 74%,
-    transparent 74%
-  );
-}
-
-.pile-resize:hover {
-  opacity: 0.92;
-}
+/* ===========================================================================
+   Context menu
+   =========================================================================== */
 
 .ctx-menu {
-  min-width: 176px;
-  padding: 6px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(12, 15, 20, 0.94);
-  backdrop-filter: blur(18px);
-  box-shadow:
-    0 18px 38px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  min-width: 168px;
+  padding: var(--space-2xs);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: var(--radius-md);
+  background-color: var(--color-paper-2);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
 }
 
 .ctx-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
   width: 100%;
-  padding: 9px 12px;
+  padding: var(--space-2xs) var(--space-xs);
   border: none;
-  border-radius: 12px;
-  background: none;
-  color: rgba(247, 248, 251, 0.88);
-  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
-  transition: background 80ms ease, color 80ms ease;
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+
+.ctx-menu-item svg {
+  color: var(--color-ink-2);
+  flex-shrink: 0;
+}
+
+.ctx-menu-item--danger svg {
+  color: var(--color-danger);
 }
 
 .ctx-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background-color: var(--color-paper-3);
 }
 
 .ctx-menu-item:focus-visible {
-  outline: none;
-  background: rgba(151, 198, 255, 0.14);
-  box-shadow: 0 0 0 2px rgba(151, 198, 255, 0.2);
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 .ctx-menu-item--danger {
-  color: #ffb0b0;
+  color: var(--color-danger);
 }
 
 .ctx-menu-item--danger:hover {
-  background: rgba(255, 123, 123, 0.12);
+  background-color: var(--color-danger-wash);
 }
 
 .ctx-menu-sep {
   height: 1px;
-  margin: 6px 2px;
-  background: rgba(255, 255, 255, 0.08);
+  margin: var(--space-2xs) var(--space-3xs);
+  background-color: var(--color-rule-soft);
 }
 
-@media (max-width: 1180px) {
+/* ===========================================================================
+   Responsive
+   =========================================================================== */
+
+@media (max-width: 1100px) {
   .ws-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--space-xs);
   }
 
   .ws-toolbar__meta,
   .ws-toolbar__actions {
+    grid-column: 1 / -1;
     justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 860px) {
+  .ws-stage {
+    flex-direction: column;
   }
 
-  .canvas-overlay {
-    padding: 18px;
+  .inspector-panel {
+    width: 100%;
+    max-height: 40%;
   }
 }
 
 @media (max-width: 720px) {
-  .ws-shell--canvas,
+  .ws-shell {
+    padding: var(--space-xs);
+    gap: var(--space-xs);
+  }
+
   .ws-shell--idle,
   .ws-shell--error,
   .ws-shell--empty,
   .ws-shell--loading {
-    padding: 16px;
+    padding: var(--space-md);
   }
 
-  .ws-prompt-card,
-  .ws-toolbar,
-  .canvas-scroll,
-  .inspector-panel {
-    border-radius: 22px;
-  }
-
-  .inspector-panel {
-    width: min(100%, 280px);
+  .ws-prompt-card {
+    padding: var(--space-md);
   }
 
   .inspector-panel__actions {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===========================================================================
+   Reduced motion
+   ===========================================================================
+   Piles is a canvas app: cards move under the pointer. Spatial motion
+   collapses; colour transitions survive because they carry state (selected,
+   hover, drop-target) rather than movement.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ws-btn:active:not(:disabled) {
+    transform: none;
   }
 }

@@ -8,9 +8,11 @@ import React, {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 
 import type { FileMeta, GroupModel, Point } from "../shared/types";
 import { CanvasItem } from "./CanvasItem";
+import { getItemTone, type ItemTone } from "./presentation";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,7 +25,10 @@ export interface PileCardProps {
   selectedItemIds: ReadonlySet<string>;
   renameRequest: { itemId: string; token: number } | null;
   onMove: (groupId: string, newPosition: Point) => void;
-  onResize: (groupId: string, newSize: { width: number; height: number }) => void;
+  onResize: (
+    groupId: string,
+    newSize: { width: number; height: number },
+  ) => void;
   onRename: (groupId: string, newName: string) => void;
   onCollapse: (groupId: string, collapsed: boolean) => void;
   onDelete: (groupId: string) => void;
@@ -36,6 +41,8 @@ export interface PileCardProps {
   zIndex?: number;
   /** True when the current drag would drop into this pile. */
   isDropTarget?: boolean;
+  /** Active filter tone, or null when no filter is active. */
+  filterTone?: ItemTone | null;
   /**
    * Reference to the scrollable canvas container element. Used to compute
    * canvas-relative pointer positions during header drag, consistent with
@@ -55,8 +62,8 @@ const COLLAPSED_HEIGHT = HEADER_HEIGHT;
 
 // Layout constants for items rendered inside a pile body.
 const PILE_GRID_COLS = 2;
-const PILE_GRID_CELL_W = 104;
-const PILE_GRID_CELL_H = 88;
+const PILE_GRID_CELL_W = 136;
+const PILE_GRID_CELL_H = 156;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -79,6 +86,7 @@ export const PileCard = memo(function PileCard({
   onItemTrash,
   zIndex = 0,
   isDropTarget = false,
+  filterTone = null,
   canvasEl,
 }: PileCardProps) {
   const [editing, setEditing] = useState(false);
@@ -129,7 +137,7 @@ export const PileCard = memo(function PileCard({
         setDraftName(group.name);
       }
     },
-    [commitRename, group.name]
+    [commitRename, group.name],
   );
 
   // ── Header drag (move pile) ───────────────────────────────────────────────
@@ -158,7 +166,7 @@ export const PileCard = memo(function PileCard({
         startPos: { ...group.position },
       };
     },
-    [editing, group.position, canvasEl]
+    [editing, group.position, canvasEl],
   );
 
   const handleHeaderPointerMove = useCallback(
@@ -180,7 +188,7 @@ export const PileCard = memo(function PileCard({
       const dy = currentPointer.y - s.startPointer.y;
       onMove(group.id, { x: s.startPos.x + dx, y: s.startPos.y + dy });
     },
-    [group.id, onMove, canvasEl]
+    [group.id, onMove, canvasEl],
   );
 
   const handleHeaderPointerUp = useCallback(() => {
@@ -190,7 +198,7 @@ export const PileCard = memo(function PileCard({
   // ── Resize handle ─────────────────────────────────────────────────────────
 
   const handleResizePointerDown = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+    (e: PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       (e.target as Element).setPointerCapture(e.pointerId);
@@ -199,11 +207,11 @@ export const PileCard = memo(function PileCard({
         startSize: { ...group.size },
       };
     },
-    [group.size]
+    [group.size],
   );
 
   const handleResizePointerMove = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+    (e: PointerEvent<HTMLButtonElement>) => {
       const s = resizeDragRef.current;
       if (!s) return;
       const dx = e.clientX - s.startPointer.x;
@@ -213,20 +221,46 @@ export const PileCard = memo(function PileCard({
         height: Math.max(MIN_HEIGHT, s.startSize.height + dy),
       });
     },
-    [group.id, onResize]
+    [group.id, onResize],
   );
 
   const handleResizePointerUp = useCallback(() => {
     resizeDragRef.current = null;
   }, []);
 
+  // Keyboard resize. The PRD requires pile resize; the handle was previously
+  // aria-hidden with no keyboard path, so the capability existed only for mice.
+  const handleResizeKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      const step = e.shiftKey ? 32 : 8;
+      let dw = 0;
+      let dh = 0;
+      if (e.key === "ArrowRight") dw = step;
+      else if (e.key === "ArrowLeft") dw = -step;
+      else if (e.key === "ArrowDown") dh = step;
+      else if (e.key === "ArrowUp") dh = -step;
+      else return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      onResize(group.id, {
+        width: Math.max(MIN_WIDTH, group.size.width + dw),
+        height: Math.max(MIN_HEIGHT, group.size.height + dh),
+      });
+    },
+    [group.id, group.size.width, group.size.height, onResize],
+  );
+
   // ── Body click stop-propagation ───────────────────────────────────────────
 
-  const handleBodyPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    // Prevent clicks on the pile body from propagating to the canvas
-    // (which would deselect everything via canvas handleCanvasPointerDown).
-    e.stopPropagation();
-  }, []);
+  const handleBodyPointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      // Prevent clicks on the pile body from propagating to the canvas
+      // (which would deselect everything via canvas handleCanvasPointerDown).
+      e.stopPropagation();
+    },
+    [],
+  );
 
   // ── Stable button handlers ────────────────────────────────────────────────
 
@@ -235,7 +269,7 @@ export const PileCard = memo(function PileCard({
       e.stopPropagation();
       onCollapse(group.id, !group.collapsed);
     },
-    [group.id, group.collapsed, onCollapse]
+    [group.id, group.collapsed, onCollapse],
   );
 
   const handleDeleteClick = useCallback(
@@ -243,7 +277,7 @@ export const PileCard = memo(function PileCard({
       e.stopPropagation();
       onDelete(group.id);
     },
-    [group.id, onDelete]
+    [group.id, onDelete],
   );
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -305,7 +339,11 @@ export const PileCard = memo(function PileCard({
           aria-label={group.collapsed ? "Expand pile" : "Collapse pile"}
           onClick={handleCollapseClick}
         >
-          {group.collapsed ? "▶" : "▼"}
+          {group.collapsed ? (
+            <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+          )}
         </button>
 
         <button
@@ -313,7 +351,7 @@ export const PileCard = memo(function PileCard({
           aria-label="Delete pile (items stay on canvas)"
           onClick={handleDeleteClick}
         >
-          ✕
+          <X size={14} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
@@ -334,8 +372,11 @@ export const PileCard = memo(function PileCard({
                 position={pos}
                 zIndex={1}
                 selected={selectedItemIds.has(item.id)}
+                dimmed={filterTone !== null && getItemTone(item) !== filterTone}
                 renameRequestToken={
-                  renameRequest?.itemId === item.id ? renameRequest.token : undefined
+                  renameRequest?.itemId === item.id
+                    ? renameRequest.token
+                    : undefined
                 }
                 onPointerDown={onItemPointerDown}
                 onDoubleClick={onItemDoubleClick}
@@ -350,13 +391,15 @@ export const PileCard = memo(function PileCard({
 
       {/* Resize handle (only when expanded) */}
       {!group.collapsed && (
-        <div
+        <button
+          type="button"
           className="pile-resize"
+          aria-label={`Resize ${group.name}. Arrow keys resize, shift for larger steps.`}
           onPointerDown={handleResizePointerDown}
           onPointerMove={handleResizePointerMove}
           onPointerUp={handleResizePointerUp}
           onPointerCancel={handleResizePointerUp}
-          aria-hidden="true"
+          onKeyDown={handleResizeKeyDown}
         />
       )}
     </div>

@@ -11,9 +11,10 @@ import { useStore } from "zustand";
 
 import type { FileMeta, GroupModel, ItemLayout, Point } from "../shared/types";
 import { buildFallbackPositions } from "./canvas-layout";
-import { CanvasItem } from "./CanvasItem";
+import { CanvasItem, ITEM_HEIGHT, ITEM_WIDTH } from "./CanvasItem";
 import { InspectorPanel } from "./InspectorPanel";
 import { PileCard } from "./PileCard";
+import { getItemTone, type ItemTone } from "./presentation";
 import { getStore } from "./store";
 import { defaultPositionForIndex } from "./useDrag";
 import { useDrag } from "./useDrag";
@@ -26,9 +27,17 @@ import { pointInRect, rectFromPoints, useSelection } from "./useSelection";
 const CANVAS_WIDTH = 3000;
 const CANVAS_HEIGHT = 3000;
 
-// Z-index budget: pile backgrounds render below items.
-const PILE_BASE_Z = 10;
-const ITEM_BASE_Z = 100;
+// Z-index budget. The two arithmetic bases mirror the named tokens in
+// tokens.css (--z-pile, --z-item) and must stay in sync with them; they live
+// here as numbers because they participate in JS arithmetic (+ idx, + the
+// saved relative zIndex). The fixed layers — drag, marquee, context menu —
+// are consumed directly as var(--z-drag) / var(--z-overlay) / var(--z-menu)
+// so there is no numeric copy to drift. See the "Z scale" block in tokens.css
+// for the full ordering rationale.
+const PILE_BASE_Z = 100; // mirrors --z-pile
+const ITEM_BASE_Z = 200; // mirrors --z-item
+/** A dragged card floats above every resting card but below the marquee. */
+const DRAG_Z = "var(--z-drag)";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,7 +49,7 @@ const ITEM_BASE_Z = 100;
  */
 function toCanvasPoint(
   e: { clientX: number; clientY: number },
-  canvasEl: HTMLDivElement
+  canvasEl: HTMLDivElement,
 ): Point {
   const rect = canvasEl.getBoundingClientRect();
   return {
@@ -55,7 +64,7 @@ function toCanvasPoint(
  */
 function hitTestGroups(
   point: Point,
-  groups: Record<string, GroupModel>
+  groups: Record<string, GroupModel>,
 ): string | null {
   for (const group of Object.values(groups)) {
     const rect = {
@@ -92,17 +101,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
 // Component
 // ---------------------------------------------------------------------------
 
-export function Canvas() {
+export function Canvas({ filterTone = null }: { filterTone?: ItemTone | null } = {}) {
   const store = useMemo(() => getStore(), []);
 
   const items = useStore(store, (s) => s.items);
   const itemLayouts = useStore(
     store,
-    (s) => s.workspace?.itemLayouts ?? ({} as Record<string, ItemLayout>)
+    (s) => s.workspace?.itemLayouts ?? ({} as Record<string, ItemLayout>),
   );
   const groups = useStore(
     store,
-    (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>)
+    (s) => s.workspace?.groups ?? ({} as Record<string, GroupModel>),
   );
   const createGroup = useStore(store, (s) => s.createGroup);
   const updateItemLayouts = useStore(store, (s) => s.updateItemLayouts);
@@ -129,7 +138,7 @@ export function Canvas() {
   // Pre-compute default positions for items without a saved layout.
   const defaultPositions = useMemo(
     () => buildFallbackPositions(items, itemLayouts),
-    [items, itemLayouts]
+    [items, itemLayouts],
   );
 
   // Ref that mirrors selection.selectedIds so event handlers can read the
@@ -141,7 +150,7 @@ export function Canvas() {
 
   const selectedIds = useMemo(
     () => Array.from(selection.selectedIds),
-    [selection.selectedIds]
+    [selection.selectedIds],
   );
 
   const itemsById = useMemo(() => {
@@ -157,7 +166,7 @@ export function Canvas() {
       selectedIds
         .map((id) => itemsById[id])
         .filter((item): item is FileMeta => item !== undefined),
-    [itemsById, selectedIds]
+    [itemsById, selectedIds],
   );
 
   const clearSelection = useCallback(() => {
@@ -190,7 +199,14 @@ export function Canvas() {
 
     clearSelection();
     void saveWorkspace();
-  }, [clearSelection, createGroup, defaultPositions, itemLayouts, saveWorkspace, selectedIds]);
+  }, [
+    clearSelection,
+    createGroup,
+    defaultPositions,
+    itemLayouts,
+    saveWorkspace,
+    selectedIds,
+  ]);
 
   const requestRenameForSelection = useCallback(() => {
     if (selectedIds.length !== 1) {
@@ -275,7 +291,7 @@ export function Canvas() {
         defaultPositions,
       });
     },
-    [selection, drag, itemLayouts, defaultPositions]
+    [selection, drag, itemLayouts, defaultPositions],
   );
 
   // ── Pointer down on canvas (empty area → marquee or deselect) ────────────
@@ -285,8 +301,7 @@ export function Canvas() {
       if (e.button !== 0) return;
       const target = e.target as Element;
       const isBlankCanvasHit =
-        target === canvasRef.current ||
-        target === surfaceRef.current;
+        target === canvasRef.current || target === surfaceRef.current;
       if (!isBlankCanvasHit) return;
 
       selection.deselectAll();
@@ -298,7 +313,7 @@ export function Canvas() {
       const pt = toCanvasPoint(e, canvasEl);
       selection.startMarquee(pt);
     },
-    [selection]
+    [selection],
   );
 
   // ── Pointer move ──────────────────────────────────────────────────────────
@@ -319,7 +334,7 @@ export function Canvas() {
         selection.updateMarquee(pt);
       }
     },
-    [drag, groups, selection]
+    [drag, groups, selection],
   );
 
   // ── Pointer up ────────────────────────────────────────────────────────────
@@ -387,14 +402,24 @@ export function Canvas() {
         const finalRect = selection.commitMarquee();
         if (finalRect && (finalRect.width > 4 || finalRect.height > 4)) {
           // Select all items whose position falls within the marquee.
+          // A filter pill is a visibility control, not just a dimmer: a card
+          // whose tone is excluded reads as inert (.ci--dimmed, no pointer
+          // events) and must not enter the selection. Without this guard the
+          // marquee would silently collect dimmed cards the user cannot then
+          // click to remove — the only escape would be Escape/deselect-all.
           const hit = new Set<string>();
           for (const item of items) {
-            const pos =
-              itemLayouts[item.id]?.position ??
-              defaultPositions[item.id] ??
-              { x: 0, y: 0 };
-            // Use item center (48×40 is half of 96×80).
-            const center: Point = { x: pos.x + 48, y: pos.y + 40 };
+            if (filterTone !== null && getItemTone(item) !== filterTone) {
+              continue;
+            }
+            const pos = itemLayouts[item.id]?.position ??
+              defaultPositions[item.id] ?? { x: 0, y: 0 };
+            // Use item center, derived from the shared card dimensions so this
+            // stays correct if ITEM_WIDTH/ITEM_HEIGHT change again.
+            const center: Point = {
+              x: pos.x + ITEM_WIDTH / 2,
+              y: pos.y + ITEM_HEIGHT / 2,
+            };
             if (pointInRect(center, finalRect)) {
               hit.add(item.id);
             }
@@ -412,11 +437,12 @@ export function Canvas() {
       groups,
       itemLayouts,
       defaultPositions,
+      filterTone,
       updateItemLayouts,
       addItemToGroup,
       removeItemFromGroup,
       saveWorkspace,
-    ]
+    ],
   );
 
   // Release pointer capture on pointer cancel.
@@ -468,7 +494,12 @@ export function Canvas() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [clearSelection, handleOpenSelection, handleTrashSelection, requestRenameForSelection]);
+  }, [
+    clearSelection,
+    handleOpenSelection,
+    handleTrashSelection,
+    requestRenameForSelection,
+  ]);
 
   // ── Pile action callbacks ─────────────────────────────────────────────────
 
@@ -479,7 +510,7 @@ export function Canvas() {
       // This fires on every pointermove; acceptable for now.
       void saveWorkspace();
     },
-    [updateGroup, saveWorkspace]
+    [updateGroup, saveWorkspace],
   );
 
   const handlePileResize = useCallback(
@@ -488,7 +519,7 @@ export function Canvas() {
       // Persist on every resize event so size survives app close mid-drag.
       void saveWorkspace();
     },
-    [updateGroup, saveWorkspace]
+    [updateGroup, saveWorkspace],
   );
 
   const handlePileRename = useCallback(
@@ -496,7 +527,7 @@ export function Canvas() {
       updateGroup(groupId, { name: newName });
       void saveWorkspace();
     },
-    [updateGroup, saveWorkspace]
+    [updateGroup, saveWorkspace],
   );
 
   const handlePileCollapse = useCallback(
@@ -504,7 +535,7 @@ export function Canvas() {
       updateGroup(groupId, { collapsed });
       void saveWorkspace();
     },
-    [updateGroup, saveWorkspace]
+    [updateGroup, saveWorkspace],
   );
 
   const handlePileDelete = useCallback(
@@ -512,7 +543,7 @@ export function Canvas() {
       store.getState().deleteGroup(groupId);
       void saveWorkspace();
     },
-    [store, saveWorkspace]
+    [store, saveWorkspace],
   );
 
   // ── File action callbacks ─────────────────────────────────────────────────
@@ -521,26 +552,26 @@ export function Canvas() {
     (id: string) => {
       void openItem(id);
     },
-    [openItem]
+    [openItem],
   );
 
   const handleItemReveal = useCallback(
     (id: string) => {
       void revealItem(id);
     },
-    [revealItem]
+    [revealItem],
   );
 
   const handleItemRename = useCallback(
     (id: string, newName: string) => renameItem(id, newName),
-    [renameItem]
+    [renameItem],
   );
 
   const handleItemTrash = useCallback(
     (id: string) => {
       void trashItem(id);
     },
-    [trashItem]
+    [trashItem],
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -552,111 +583,121 @@ export function Canvas() {
     flexShrink: 0,
   };
 
-  const marqueeStyle: CSSProperties | undefined =
-    selection.marquee
-      ? {
-          position: "absolute",
-          left: selection.marquee.x,
-          top: selection.marquee.y,
-          width: selection.marquee.width,
-          height: selection.marquee.height,
-          border: "1px dashed rgba(142, 203, 255, 0.7)",
-          background: "rgba(142, 203, 255, 0.07)",
-          pointerEvents: "none",
-          zIndex: 9999,
-        }
-      : undefined;
+  // Geometry only. The marquee's colour and stacking live in .canvas-marquee,
+  // so the last inline colour values leave the renderer.
+  const marqueeStyle: CSSProperties | undefined = selection.marquee
+    ? {
+        left: selection.marquee.x,
+        top: selection.marquee.y,
+        width: selection.marquee.width,
+        height: selection.marquee.height,
+      }
+    : undefined;
 
   return (
-    <div
-      className="canvas-scroll"
-      ref={canvasRef}
-      onPointerDown={handleCanvasPointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-    >
-      <div className="canvas-overlay">
-        <InspectorPanel
-          selectedItems={selectedItems}
-          onCreatePile={handleCreatePileFromSelection}
-          onOpen={() => void handleOpenSelection()}
-          onReveal={() => void handleRevealSelection()}
-          onRename={requestRenameForSelection}
-          onTrash={() => void handleTrashSelection()}
-        />
-      </div>
-
-      <div className="canvas-surface" style={canvasStyle} ref={surfaceRef}>
-        {/* Pile backgrounds — rendered below items */}
-        {Object.values(groups).map((group, idx) => {
-          const members = group.itemIds
-            .map((id) => itemsById[id])
-            .filter((item): item is FileMeta => item !== undefined);
-
-          return (
-            <PileCard
-              key={group.id}
-              group={group}
-              members={members}
-              selectedItemIds={selection.selectedIds}
-              renameRequest={renameRequest}
-              // TODO: GroupModel has no zIndex field; stacking order is
-              // determined by insertion order. Add a zIndex field to GroupModel
-              // and a "bring to front" action to support user-controlled ordering.
-              zIndex={PILE_BASE_Z + idx}
-              isDropTarget={hoverDropGroupId === group.id}
-              canvasEl={canvasRef.current}
-              onMove={handlePileMove}
-              onResize={handlePileResize}
-              onRename={handlePileRename}
-              onCollapse={handlePileCollapse}
-              onDelete={handlePileDelete}
-              onItemPointerDown={handleItemPointerDown}
-              onItemDoubleClick={handleItemDoubleClick}
-              onItemReveal={handleItemReveal}
-              onItemRename={handleItemRename}
-              onItemTrash={handleItemTrash}
-            />
-          );
-        })}
-
-        {/* Canvas items — render items NOT inside a pile at their absolute positions */}
-        {items
-          .filter((item) => !(itemLayouts[item.id]?.groupId))
-          .map((item) => {
-            // Drag override takes priority, then saved layout, then default.
-            const position =
-              drag.dragPositions[item.id] ??
-              itemLayouts[item.id]?.position ??
-              defaultPositions[item.id] ??
-              { x: 0, y: 0 };
-
-            const zIndex = drag.dragPositions[item.id]
-              ? 9998 // Float dragged items below the marquee overlay
-              : (ITEM_BASE_Z + (itemLayouts[item.id]?.zIndex ?? 0));
+    <>
+      <div
+        className="canvas-scroll"
+        ref={canvasRef}
+        onPointerDown={handleCanvasPointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      >
+        <div className="canvas-surface" style={canvasStyle} ref={surfaceRef}>
+          {/* Pile backgrounds — rendered below items */}
+          {Object.values(groups).map((group, idx) => {
+            const members = group.itemIds
+              .map((id) => itemsById[id])
+              .filter((item): item is FileMeta => item !== undefined);
 
             return (
-              <CanvasItem
-                key={item.id}
-                item={item}
-                position={position}
-                zIndex={zIndex}
-                selected={selection.selectedIds.has(item.id)}
-                renameRequestToken={
-                  renameRequest?.itemId === item.id ? renameRequest.token : undefined
-                }
-                onPointerDown={handleItemPointerDown}
-                onDoubleClick={handleItemDoubleClick}
-                onReveal={handleItemReveal}
-                onRename={handleItemRename}
-                onTrash={handleItemTrash}
+              <PileCard
+                key={group.id}
+                group={group}
+                members={members}
+                selectedItemIds={selection.selectedIds}
+                renameRequest={renameRequest}
+                // TODO: GroupModel has no zIndex field; stacking order is
+                // determined by insertion order. Add a zIndex field to GroupModel
+                // and a "bring to front" action to support user-controlled ordering.
+                zIndex={PILE_BASE_Z + idx}
+                isDropTarget={hoverDropGroupId === group.id}
+                filterTone={filterTone}
+                canvasEl={canvasRef.current}
+                onMove={handlePileMove}
+                onResize={handlePileResize}
+                onRename={handlePileRename}
+                onCollapse={handlePileCollapse}
+                onDelete={handlePileDelete}
+                onItemPointerDown={handleItemPointerDown}
+                onItemDoubleClick={handleItemDoubleClick}
+                onItemReveal={handleItemReveal}
+                onItemRename={handleItemRename}
+                onItemTrash={handleItemTrash}
               />
             );
           })}
 
-        {marqueeStyle && <div style={marqueeStyle} aria-hidden="true" />}
+          {/* Canvas items — render items NOT inside a pile at their absolute positions */}
+          {items
+            .filter((item) => !itemLayouts[item.id]?.groupId)
+            .map((item) => {
+              // Drag override takes priority, then saved layout, then default.
+              const position = drag.dragPositions[item.id] ??
+                itemLayouts[item.id]?.position ??
+                defaultPositions[item.id] ?? { x: 0, y: 0 };
+
+              const isDragging = Boolean(drag.dragPositions[item.id]);
+
+              const zIndex = isDragging
+                ? DRAG_Z // Float dragged items above resting cards, below the marquee
+                : ITEM_BASE_Z + (itemLayouts[item.id]?.zIndex ?? 0);
+
+              return (
+                <CanvasItem
+                  key={item.id}
+                  item={item}
+                  position={position}
+                  zIndex={zIndex}
+                  selected={selection.selectedIds.has(item.id)}
+                  dragging={isDragging}
+                  dimmed={filterTone !== null && getItemTone(item) !== filterTone}
+                  renameRequestToken={
+                    renameRequest?.itemId === item.id
+                      ? renameRequest.token
+                      : undefined
+                  }
+                  onPointerDown={handleItemPointerDown}
+                  onDoubleClick={handleItemDoubleClick}
+                  onReveal={handleItemReveal}
+                  onRename={handleItemRename}
+                  onTrash={handleItemTrash}
+                />
+              );
+            })}
+
+          {marqueeStyle && (
+            <div
+              className="canvas-marquee"
+              style={marqueeStyle}
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* The inspector is a sibling panel, not an overlay pinned inside the
+          scroll container. Sitting in the stage's flex row means it no longer
+          needs sticky positioning or a high z-index to climb above the board. */}
+      <InspectorPanel
+        selectedItems={selectedItems}
+        onCreatePile={handleCreatePileFromSelection}
+        onOpen={() => void handleOpenSelection()}
+        onReveal={() => void handleRevealSelection()}
+        onRename={requestRenameForSelection}
+        onTrash={() => void handleTrashSelection()}
+      />
+    </>
   );
 }

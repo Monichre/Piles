@@ -9,9 +9,29 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from "react";
+import {
+  Archive,
+  Code2,
+  ExternalLink,
+  FileText,
+  Film,
+  Folder,
+  FolderOpen,
+  ImageIcon,
+  Music,
+  Pencil,
+  Play,
+  Trash2,
+} from "lucide-react";
 
 import type { FileMeta, Point } from "../shared/types";
-import { getItemBadgeLabel, getItemKindLabel } from "./presentation";
+import {
+  getItemBadgeLabel,
+  getItemKindLabel,
+  getItemTone,
+  getItemVisualKind,
+  type ItemVisualKind,
+} from "./presentation";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -20,9 +40,17 @@ import { getItemBadgeLabel, getItemKindLabel } from "./presentation";
 export interface CanvasItemProps {
   item: FileMeta;
   position: Point;
-  zIndex: number;
+  /**
+   * z-index for the card. A number for resting cards (base + saved relative
+   * order), or a CSS var string for dragged cards (var(--z-drag)).
+   */
+  zIndex: number | string;
   selected: boolean;
   renameRequestToken?: number;
+  /** True while this card is being dragged. Drives the .ci--dragging state. */
+  dragging?: boolean;
+  /** True when a filter pill is active and this card's category is excluded. */
+  dimmed?: boolean;
   onPointerDown: (e: PointerEvent<HTMLDivElement>, id: string) => void;
   onDoubleClick?: (id: string) => void;
   onReveal?: (id: string) => void;
@@ -34,8 +62,10 @@ export interface CanvasItemProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-const ITEM_WIDTH = 96;
-const ITEM_HEIGHT = 80;
+export const ITEM_WIDTH = 128;
+// Tall enough for a visual area (80px) plus a two-line filename and kind
+// label. Each file type renders a different visual in the top portion.
+export const ITEM_HEIGHT = 148;
 
 // ---------------------------------------------------------------------------
 // Context menu component
@@ -51,7 +81,15 @@ interface CtxMenuProps {
   onClose: () => void;
 }
 
-function CtxMenu({ x, y, onOpen, onReveal, onRename, onTrash, onClose }: CtxMenuProps) {
+function CtxMenu({
+  x,
+  y,
+  onOpen,
+  onReveal,
+  onRename,
+  onTrash,
+  onClose,
+}: CtxMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Keyboard-opened menus should move focus into the menu immediately.
@@ -80,32 +118,97 @@ function CtxMenu({ x, y, onOpen, onReveal, onRename, onTrash, onClose }: CtxMenu
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // Arrow-key traversal. role="menu" promises this to assistive tech, so the
+  // handler has to actually provide it — Tab alone is not the menu pattern.
+  const handleMenuKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+    if (!keys.includes(e.key)) return;
+    e.preventDefault();
+
+    const items = Array.from(
+      ref.current?.querySelectorAll<HTMLButtonElement>("[role='menuitem']") ??
+        [],
+    );
+    if (items.length === 0) return;
+
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = items.length - 1;
+    else if (e.key === "ArrowDown") next = (current + 1) % items.length;
+    else next = (current - 1 + items.length) % items.length;
+
+    items[next]?.focus();
+  }, []);
+
   const style: CSSProperties = {
     position: "fixed",
     left: x,
     top: y,
-    zIndex: 99999,
+    zIndex: "var(--z-menu)",
   };
 
-  const handleOpen = useCallback((e: MouseEvent) => { e.stopPropagation(); onOpen(); onClose(); }, [onOpen, onClose]);
-  const handleReveal = useCallback((e: MouseEvent) => { e.stopPropagation(); onReveal(); onClose(); }, [onReveal, onClose]);
-  const handleRename = useCallback((e: MouseEvent) => { e.stopPropagation(); onRename(); onClose(); }, [onRename, onClose]);
-  const handleTrash = useCallback((e: MouseEvent) => { e.stopPropagation(); onTrash(); onClose(); }, [onTrash, onClose]);
+  const handleOpen = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onOpen();
+      onClose();
+    },
+    [onOpen, onClose],
+  );
+  const handleReveal = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onReveal();
+      onClose();
+    },
+    [onReveal, onClose],
+  );
+  const handleRename = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onRename();
+      onClose();
+    },
+    [onRename, onClose],
+  );
+  const handleTrash = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onTrash();
+      onClose();
+    },
+    [onTrash, onClose],
+  );
 
   return (
-    <div className="ctx-menu" style={style} ref={ref} role="menu">
+    <div
+      className="ctx-menu"
+      style={style}
+      ref={ref}
+      role="menu"
+      onKeyDown={handleMenuKeyDown}
+    >
       <button className="ctx-menu-item" role="menuitem" onClick={handleOpen}>
+        <ExternalLink size={15} strokeWidth={1.75} aria-hidden="true" />
         Open
       </button>
       <button className="ctx-menu-item" role="menuitem" onClick={handleReveal}>
+        <FolderOpen size={15} strokeWidth={1.75} aria-hidden="true" />
         Reveal in Finder
       </button>
       <div className="ctx-menu-sep" role="separator" />
       <button className="ctx-menu-item" role="menuitem" onClick={handleRename}>
+        <Pencil size={15} strokeWidth={1.75} aria-hidden="true" />
         Rename…
       </button>
       <div className="ctx-menu-sep" role="separator" />
-      <button className="ctx-menu-item ctx-menu-item--danger" role="menuitem" onClick={handleTrash}>
+      <button
+        className="ctx-menu-item ctx-menu-item--danger"
+        role="menuitem"
+        onClick={handleTrash}
+      >
+        <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
         Move to Trash
       </button>
     </div>
@@ -122,6 +225,8 @@ export const CanvasItem = memo(function CanvasItem({
   zIndex,
   selected,
   renameRequestToken,
+  dragging = false,
+  dimmed = false,
   onPointerDown,
   onDoubleClick,
   onReveal,
@@ -150,12 +255,14 @@ export const CanvasItem = memo(function CanvasItem({
 
   const badgeLabel = getItemBadgeLabel(item);
   const kindLabel = getItemKindLabel(item);
+  const tone = getItemTone(item);
+  const visualKind = getItemVisualKind(item);
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       onPointerDown(e, item.id);
     },
-    [onPointerDown, item.id]
+    [onPointerDown, item.id],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -163,14 +270,11 @@ export const CanvasItem = memo(function CanvasItem({
   }, [onDoubleClick, item.id]);
 
   // Right-click opens context menu.
-  const handleContextMenu = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setCtxMenu({ x: e.clientX, y: e.clientY });
-    },
-    []
-  );
+  const handleContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   // ── Inline rename ─────────────────────────────────────────────────────────
 
@@ -214,7 +318,7 @@ export const CanvasItem = memo(function CanvasItem({
         setDraftName(item.name);
       }
     },
-    [commitRename, item.name]
+    [commitRename, item.name],
   );
 
   const handleInputBlur = useCallback(() => {
@@ -222,9 +326,12 @@ export const CanvasItem = memo(function CanvasItem({
   }, [commitRename]);
 
   // Prevent pointer-down on the rename input from starting a drag.
-  const handleInputPointerDown = useCallback((e: PointerEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-  }, []);
+  const handleInputPointerDown = useCallback(
+    (e: PointerEvent<HTMLInputElement>) => {
+      e.stopPropagation();
+    },
+    [],
+  );
 
   // ── Context menu actions ──────────────────────────────────────────────────
 
@@ -284,15 +391,26 @@ export const CanvasItem = memo(function CanvasItem({
         openContextMenuFromKeyboard();
       }
     },
-    [editing, handleDoubleClick, openContextMenuFromKeyboard]
+    [editing, handleDoubleClick, openContextMenuFromKeyboard],
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const classNames = [
+    "ci",
+    `ci--kind-${visualKind}`,
+    `ci--tone-${tone}`,
+    selected ? "ci--selected" : "",
+    dragging ? "ci--dragging" : "",
+    dimmed ? "ci--dimmed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <>
       <div
-        className={`ci${selected ? " ci--selected" : ""}${item.kind === "folder" ? " ci--folder" : " ci--file"}`}
+        className={classNames}
         ref={itemRef}
         style={style}
         onPointerDown={handlePointerDown}
@@ -305,44 +423,28 @@ export const CanvasItem = memo(function CanvasItem({
         role="button"
         tabIndex={0}
       >
-        {item.kind === "folder" ? (
-          <div className="ci-folder-chrome" aria-hidden="true">
-            <div className="ci-folder-tab">
-              <span className="ci-badge">{badgeLabel}</span>
-            </div>
-            <div className="ci-folder-body">
-              <span className="ci-folder-papers" />
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="ci-topline" aria-hidden="true">
-              <span className="ci-badge">{badgeLabel}</span>
-              <span className="ci-topline__rule" />
-            </div>
-            <div className="ci-preview ci-preview--file" aria-hidden="true">
-              <span className="ci-preview__line" />
-              <span className="ci-preview__line ci-preview__line--short" />
-            </div>
-          </>
-        )}
-        {editing ? (
-          <input
-            className="ci-name ci-name--editing"
-            value={draftName}
-            autoFocus
-            onChange={(e) => setDraftName(e.target.value)}
-            onBlur={handleInputBlur}
-            onKeyDown={handleNameKeyDown}
-            onPointerDown={handleInputPointerDown}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span className="ci-name" title={item.name}>
-            {item.name}
-          </span>
-        )}
-        <span className="ci-meta">{kindLabel}</span>
+        <div className="ci-visual" aria-hidden="true">
+          <VisualKind kind={visualKind} badge={badgeLabel} />
+        </div>
+        <div className="ci-info">
+          {editing ? (
+            <input
+              className="ci-name ci-name--editing"
+              value={draftName}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={handleInputBlur}
+              onKeyDown={handleNameKeyDown}
+              onPointerDown={handleInputPointerDown}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="ci-name" title={item.name}>
+              {item.name}
+            </span>
+          )}
+          <span className="ci-meta">{kindLabel}</span>
+        </div>
       </div>
 
       {ctxMenu && (
@@ -359,3 +461,74 @@ export const CanvasItem = memo(function CanvasItem({
     </>
   );
 });
+
+// ---------------------------------------------------------------------------
+// VisualKind — renders the visual area for each file type
+// ---------------------------------------------------------------------------
+
+interface VisualKindProps {
+  kind: ItemVisualKind;
+  badge: string;
+}
+
+function VisualKind({ kind, badge }: VisualKindProps) {
+  switch (kind) {
+    case "folder":
+      return (
+        <div className="ci-visual-folder">
+          <Folder size={36} strokeWidth={1.5} />
+        </div>
+      );
+    case "image":
+      return (
+        <div className="ci-visual-image">
+          <ImageIcon size={28} strokeWidth={1.5} />
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    case "video":
+      return (
+        <div className="ci-visual-video">
+          <div className="ci-play-circle">
+            <Play size={20} strokeWidth={2} fill="currentColor" />
+          </div>
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    case "audio":
+      return (
+        <div className="ci-visual-audio">
+          <Music size={28} strokeWidth={1.5} />
+          <div className="ci-waveform" />
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    case "document":
+      return (
+        <div className="ci-visual-document">
+          <FileText size={32} strokeWidth={1.5} />
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    case "code":
+      return (
+        <div className="ci-visual-code">
+          <Code2 size={28} strokeWidth={1.5} />
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    case "archive":
+      return (
+        <div className="ci-visual-archive">
+          <Archive size={30} strokeWidth={1.5} />
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+    default:
+      return (
+        <div className="ci-visual-other">
+          <span className="ci-ext">{badge}</span>
+        </div>
+      );
+  }
+}

@@ -6,7 +6,9 @@ import {
   formatModifiedLabel,
   formatSelectionLabel,
   getItemBadgeLabel,
+  getItemCategoryLabel,
   getItemKindLabel,
+  getItemTone,
 } from "./presentation";
 
 function buildItem(overrides: Partial<FileMeta>): FileMeta {
@@ -65,5 +67,55 @@ describe("presentation helpers", () => {
   it("formats selection counts with correct singular and plural labels", () => {
     expect(formatSelectionLabel(1)).toBe("1 item selected");
     expect(formatSelectionLabel(4)).toBe("4 items selected");
+  });
+});
+
+describe("getItemTone", () => {
+  it("classifies documents as green", () => {
+    expect(getItemTone(buildItem({ extension: "pdf" }))).toBe("green");
+    expect(getItemTone(buildItem({ extension: "md" }))).toBe("green");
+  });
+
+  it("classifies media as yellow", () => {
+    expect(getItemTone(buildItem({ extension: "png" }))).toBe("yellow");
+    expect(getItemTone(buildItem({ extension: "mp4" }))).toBe("yellow");
+  });
+
+  it("classifies code as red", () => {
+    expect(getItemTone(buildItem({ extension: "ts" }))).toBe("red");
+    expect(getItemTone(buildItem({ extension: "json" }))).toBe("red");
+  });
+
+  it("falls back to plain for unknown extensions", () => {
+    expect(getItemTone(buildItem({ extension: "sketch" }))).toBe("plain");
+  });
+
+  it("falls back to plain for extensionless files", () => {
+    expect(getItemTone(buildItem({ extension: null }))).toBe("plain");
+  });
+
+  it("strips a leading dot and ignores case on the extension", () => {
+    expect(getItemTone(buildItem({ extension: ".PNG" }))).toBe("yellow");
+  });
+
+  it("classifies folders as plain regardless of extension", () => {
+    expect(
+      getItemTone(buildItem({ kind: "folder", isDirectory: true, extension: "png" }))
+    ).toBe("plain");
+  });
+});
+
+describe("getItemCategoryLabel", () => {
+  it("returns human-readable category matching the filter pill labels", () => {
+    expect(getItemCategoryLabel(buildItem({ extension: "pdf" }))).toBe("Document");
+    expect(getItemCategoryLabel(buildItem({ extension: "png" }))).toBe("Media");
+    expect(getItemCategoryLabel(buildItem({ extension: "ts" }))).toBe("Code");
+    expect(getItemCategoryLabel(buildItem({ extension: "sketch" }))).toBe("File");
+  });
+
+  it("returns Folder for directories", () => {
+    expect(
+      getItemCategoryLabel(buildItem({ kind: "folder", isDirectory: true }))
+    ).toBe("Folder");
   });
 });

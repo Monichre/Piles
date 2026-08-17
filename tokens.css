@@ -1,0 +1,162 @@
+/* Hallmark · Piles design tokens
+ * genre: paper-craft · designed-as-app · design-system: design.md
+ *
+ * Derived from the Kingdom Voices Process / Brand Style Guide mockups.
+ * The workspace is a cartographer's desk: warm paper, ink black, graphite
+ * pencil, vibrant orange accent, handwritten annotations, physical metaphors
+ * (tape, pins, sticky notes). Every surface reads as a physical artifact
+ * placed on the desk, not a database row rendered as a rectangle.
+ *
+ * Colour literals live here (the test only guards styles.css). Every value
+ * the stylesheet consumes is exposed as a named token below.
+ */
+
+:root {
+  /* ── Surface ──────────────────────────────────────────────────────────────
+     Warm paper, not cold grey. The base is #F4F4F0 (antique paper) with a
+     subtle radial vignette applied in styles.css. Raised surfaces are pure
+     white paper; recessed wells are a slightly darker paper tone. */
+  --color-paper: #F4F4F0;        /* antique paper — the desk surface */
+  --color-paper-2: #FFFFFF;      /* raised paper — cards, panels */
+  --color-paper-3: #EAEAE4;      /* recessed paper — wells, pile bodies */
+  --color-paper-4: #E8E8E0;      /* deep recess — ruler, graph preview */
+
+  /* ── Ink ──────────────────────────────────────────────────────────────────
+     Warm ink, not cold black. #1A1A18 is warm enough to read as ink-on-paper
+     rather than terminal-on-glass. Graphite is the muted text step; the
+     light variant is for hairlines and non-text marks only. */
+  --color-ink: #1A1A18;          /* ink black — 15.8:1 on paper */
+  --color-ink-2: #6B6B65;        /* graphite text — 4.6:1 on paper */
+  --color-ink-3: #A0A09A;        /* graphite lead — NON-TEXT ONLY, 2.4:1 */
+
+  /* ── Structure ────────────────────────────────────────────────────────────
+     Graphite hairlines, not cold grey rules. The light variant is the
+     decorative border; the heavy variant is for identifying card boundaries. */
+  --color-rule: #A0A09A;         /* graphite — identifying borders, 2.4:1 */
+  --color-rule-soft: rgba(160, 160, 154, 0.4); /* graphite hairline */
+  --color-rule-dashed: rgba(160, 160, 154, 0.5); /* dashed graphite */
+
+  /* ── Grid ─────────────────────────────────────────────────────────────────
+     The canvas grid is a warm graph-paper dot grid, not cold black dots. */
+  --color-grid: rgba(160, 160, 154, 0.25);
+  --grid-size: 24px;
+
+  /* ── Vignette ─────────────────────────────────────────────────────────────
+     A subtle paper vignette applied to the shell and canvas backgrounds.
+     Reads as paper texture, not decoration. */
+  --color-vignette: rgba(26, 26, 24, 0.02);
+  --color-vignette-soft: rgba(26, 26, 24, 0.015);
+
+  /* ── Accent ───────────────────────────────────────────────────────────────
+     Vibrant orange — the single accent. Replaces the cold blue. This is the
+     "selected direction" colour from the Kingdom Voices mockups: the one
+     mark that says "this is the thing you chose." */
+  --color-accent: #FF6B00;       /* vibrant orange — 3.9:1 on paper */
+  --color-accent-ink: #FFFFFF;   /* white on orange fill */
+  --color-accent-wash: rgba(255, 107, 0, 0.08);
+  --color-focus: #FF6B00;        /* focus ring matches accent */
+
+  /* ── Document tones ───────────────────────────────────────────────────────
+     Semantic category ramp, warmed for paper. Fills are softer and warmer
+     than the cold mockup tones; foregrounds are darkened for legibility. */
+  --tone-green-bg: #E8F0E4;      /* warm green paper — documents */
+  --tone-green-fg: #3D6B30;      /* 5.8:1 on green fill */
+  --tone-yellow-bg: #FFF4D6;     /* warm yellow paper — media */
+  --tone-yellow-fg: #8A6B1A;     /* 5.4:1 on yellow fill */
+  --tone-red-bg: #F8E0DC;        /* warm red paper — code */
+  --tone-red-fg: #A03828;        /* 5.6:1 on red fill */
+  --tone-plain-bg: #FFFFFF;      /* white paper — everything else */
+  --tone-plain-fg: #6B6B65;      /* graphite on white */
+
+  /* ── Danger ─────────────────────────────────────────────────────────────── */
+  --color-danger: #C0392B;       /* warm red — 4.5:1 on paper */
+  --color-danger-wash: rgba(192, 57, 43, 0.08);
+
+  /* ── Physical metaphors ───────────────────────────────────────────────────
+     Tape, pins, and sticky notes — the tactile elements that make the
+     workspace read as a desk, not a database. */
+  --color-tape: rgba(220, 220, 200, 0.55);
+  --color-tape-border: rgba(200, 200, 180, 0.4);
+  --color-pin: #D04848;
+  --color-sticky: #FDFD96;
+  --color-sticky-ink: #4A4A40;
+
+  /* ── Elevation ────────────────────────────────────────────────────────────
+     Paper shadows are softer and wider than glass shadows. They read as
+     physical objects resting on a surface, not floating glass panels. */
+  --shadow-sm: 0 1px 3px rgba(26, 26, 24, 0.06), 0 1px 2px rgba(26, 26, 24, 0.04);
+  --shadow-md: 0 4px 12px rgba(26, 26, 24, 0.08), 0 1px 3px rgba(26, 26, 24, 0.04);
+  --shadow-lg: 0 10px 30px rgba(26, 26, 24, 0.10), 0 2px 8px rgba(26, 26, 24, 0.05);
+  --shadow-drag: 0 16px 40px rgba(26, 26, 24, 0.16), 0 4px 12px rgba(26, 26, 24, 0.08);
+  --shadow-paper: 2px 4px 10px rgba(26, 26, 24, 0.08); /* hard paper edge */
+
+  /* ── Type ─────────────────────────────────────────────────────────────────
+     3+1. Caveat is the display face (handwritten, for pile names and
+     headlines). Inter stays as body (readable UI text). Space Mono replaces
+     IBM Plex Mono (technical labels, paths, counts). Reenie Beanie is the
+     annotation face (for future handwritten notes from the Janitor). */
+  --font-display: "Caveat", "Caveat Variable", cursive;
+  --font-body: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-mono: "Space Mono", "Space Mono Variable", ui-monospace, monospace;
+  --font-annotation: "Reenie Beanie", cursive;
+
+  /* Six steps, unchanged from the previous system. */
+  --text-2xs: 0.6875rem;   /* 11px — floor */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.8125rem;    /* 13px */
+  --text-md: 0.875rem;     /* 14px */
+  --text-lg: 1.0625rem;    /* 17px */
+  --text-xl: 1.5rem;       /* 24px */
+  --text-2xl: 2rem;        /* 32px */
+
+  /* Display type (Caveat) runs larger because it's handwritten. */
+  --text-display-sm: 1.25rem;  /* 20px — pile names */
+  --text-display-md: 1.75rem;  /* 28px — section headers */
+  --text-display-lg: 2.5rem;   /* 40px — entry state headlines */
+
+  --tracking-tight: -0.02em;
+  --tracking-display: -0.01em;  /* Caveat needs less tightening than Instrument Sans */
+  --tracking-label: 0.04em;     /* wider tracking for Space Mono labels */
+  --tracking-mono: 0.02em;      /* Space Mono body */
+  --leading-tight: 1.15;
+  --leading-body: 1.5;
+  --leading-display: 1.05;      /* Caveat is looser */
+
+  /* ── Space ────────────────────────────────────────────────────────────────
+     4pt scale, unchanged. The grid cell stays at 24px. */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* ── Radius ───────────────────────────────────────────────────────────────
+     Paper cards have sharper corners than glass panels. The radius is
+     reduced to read as cut paper, not moulded glass. */
+  --radius-sm: 4px;       /* sharp paper edge */
+  --radius-md: 6px;       /* card corners */
+  --radius-lg: 10px;      /* panel corners */
+  --radius-pill: 999px;
+
+  /* ── Motion ───────────────────────────────────────────────────────────────
+     Unchanged. Exponential ease-out, no bounce on UI state. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-instant: 80ms;
+  --dur-short: 140ms;
+  --dur-mid: 220ms;
+
+  /* ── Z scale ──────────────────────────────────────────────────────────────
+     Unchanged. Named layers for piles, items, drag, chrome, overlay, menu. */
+  --z-base: 0;
+  --z-pile: 100;
+  --z-item: 200;
+  --z-drag: 10000;
+  --z-chrome: 10001;
+  --z-overlay: 10002;
+  --z-menu: 10003;
+}

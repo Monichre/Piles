@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { FolderOpen, Layers, Plus, WandSparkles } from "lucide-react";
 
 import { Canvas } from "./Canvas";
 import { getStore } from "./store";
+import { getItemTone, type ItemTone } from "./presentation";
 
 // ---------------------------------------------------------------------------
 // WorkspaceShell
@@ -23,7 +25,7 @@ export function WorkspaceShell() {
   const items = useStore(store, (s) => s.items);
   const groupCount = useStore(
     store,
-    (s) => Object.keys(s.workspace?.groups ?? {}).length
+    (s) => Object.keys(s.workspace?.groups ?? {}).length,
   );
   const openFolder = useStore(store, (s) => s.openFolder);
   const createGroup = useStore(store, (s) => s.createGroup);
@@ -32,6 +34,38 @@ export function WorkspaceShell() {
   const startWatching = useStore(store, (s) => s.startWatching);
   const stopWatching = useStore(store, (s) => s.stopWatching);
   const rescanFolder = useStore(store, (s) => s.rescanFolder);
+
+  // ── Filter pills ───────────────────────────────────────────────────────────
+  // Ephemeral UI state — never persisted, never touches the store or the
+  // filesystem. A null filterTone means "show everything".
+  const [filterTone, setFilterTone] = useState<ItemTone | null>(null);
+
+  const toneCounts = useMemo(() => {
+    const counts: Record<ItemTone, number> = {
+      green: 0,
+      yellow: 0,
+      red: 0,
+      plain: 0,
+    };
+    for (const item of items) {
+      counts[getItemTone(item)] += 1;
+    }
+    return counts;
+  }, [items]);
+
+  // Reset the filter whenever the folder changes so a stale filter never
+  // carries into a new workspace.
+  useEffect(() => {
+    setFilterTone(null);
+  }, [folderPath]);
+
+  const FILTER_LABELS: Record<ItemTone, string> = {
+    green: "Documents",
+    yellow: "Media",
+    red: "Code",
+    plain: "Other",
+  };
+  const FILTER_TONES: ItemTone[] = ["green", "yellow", "red", "plain"];
 
   // ── Watch folder for external changes ───────────────────────────────────────
   // Set up folder watching when loaded, clean up on unmount
@@ -78,10 +112,11 @@ export function WorkspaceShell() {
             </p>
             <div className="ws-prompt-actions">
               <button className="ws-btn ws-btn--primary" onClick={openFolder}>
+                <FolderOpen size={15} strokeWidth={2} aria-hidden="true" />
                 Open folder…
               </button>
             </div>
-            <div className="ws-prompt-notes" aria-hidden="true">
+            <div className="ws-prompt-notes">
               <span className="ws-note-pill">Per-folder layout memory</span>
               <span className="ws-note-pill">Virtual grouping only</span>
             </div>
@@ -96,7 +131,7 @@ export function WorkspaceShell() {
     return (
       <main className="ws-shell ws-shell--loading" aria-busy="true">
         <p className="ws-status-label">
-          Loading{folderPath ? ` "${folderPath}"` : ""}…
+          Loading{folderPath ? ` “${folderPath}”` : ""}…
         </p>
       </main>
     );
@@ -113,7 +148,8 @@ export function WorkspaceShell() {
             {error && <p className="lede">{error}</p>}
             <div className="ws-prompt-actions">
               <button className="ws-btn ws-btn--primary" onClick={openFolder}>
-                Try another folder…
+                <FolderOpen size={15} strokeWidth={2} aria-hidden="true" />
+                Open folder…
               </button>
             </div>
           </div>
@@ -136,7 +172,8 @@ export function WorkspaceShell() {
             </p>
             <div className="ws-prompt-actions">
               <button className="ws-btn" onClick={openFolder}>
-                Open a different folder…
+                <FolderOpen size={15} strokeWidth={2} aria-hidden="true" />
+                Open folder…
               </button>
             </div>
           </div>
@@ -152,27 +189,28 @@ export function WorkspaceShell() {
       <header className="ws-toolbar">
         <div className="ws-toolbar__brand">
           <div className="ws-brand-mark" aria-hidden="true">
-            PL
+            <Layers size={16} strokeWidth={2} />
           </div>
           <div className="ws-brand-copy">
-            <p className="ws-brand-kicker">Studio board</p>
             <strong>Piles</strong>
           </div>
         </div>
 
+        {/* The path is its own label — monospace already says "this is a path",
+            so the "Active folder" eyebrow above it was saying nothing twice. */}
         <div className="ws-toolbar__folder-block">
-          <span className="ws-toolbar__label">Active folder</span>
           <span className="ws-folder-path" title={folderPath ?? ""}>
             {folderPath}
           </span>
         </div>
 
         <div className="ws-toolbar__meta">
-          <span className="ws-pill" aria-label={`${items.length} items`}>
-            {items.length} {items.length === 1 ? "item" : "items"}
+          <span className="ws-pill">
+            <strong>{items.length}</strong>{" "}
+            {items.length === 1 ? "item" : "items"}
           </span>
-          <span className="ws-pill ws-pill--warm" aria-label={`${groupCount} piles`}>
-            {groupCount} {groupCount === 1 ? "pile" : "piles"}
+          <span className="ws-pill">
+            <strong>{groupCount}</strong> {groupCount === 1 ? "pile" : "piles"}
           </span>
         </div>
 
@@ -180,25 +218,50 @@ export function WorkspaceShell() {
           <button
             className="ws-btn ws-btn--primary"
             onClick={() => autoGroup()}
-            title="Automatically group files by type"
+            disabled={items.length === 0}
           >
-            Auto Group
+            <WandSparkles size={15} strokeWidth={2} aria-hidden="true" />
+            Auto group
           </button>
-          <button
-            className="ws-btn"
-            onClick={handleNewPile}
-            title="Create an empty pile"
-          >
+          <button className="ws-btn" onClick={handleNewPile}>
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
             New pile
           </button>
-          <button className="ws-btn" onClick={openFolder}>
+          <button className="ws-btn ws-btn--quiet" onClick={openFolder}>
+            <FolderOpen size={15} strokeWidth={2} aria-hidden="true" />
             Change folder
           </button>
         </div>
       </header>
 
+      {items.length > 0 && (
+        <div className="ws-filters" role="group" aria-label="Filter by category">
+          <button
+            type="button"
+            className="ws-filter"
+            aria-pressed={filterTone === null}
+            onClick={() => setFilterTone(null)}
+          >
+            All
+            <span className="ws-filter__count">{items.length}</span>
+          </button>
+          {FILTER_TONES.filter((tone) => toneCounts[tone] > 0).map((tone) => (
+            <button
+              key={tone}
+              type="button"
+              className="ws-filter"
+              aria-pressed={filterTone === tone}
+              onClick={() => setFilterTone(tone)}
+            >
+              {FILTER_LABELS[tone]}
+              <span className="ws-filter__count">{toneCounts[tone]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <section className="ws-stage">
-        <Canvas />
+        <Canvas filterTone={filterTone} />
       </section>
     </main>
   );

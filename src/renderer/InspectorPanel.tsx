@@ -1,10 +1,19 @@
 import type { FileMeta } from "../shared/types";
+import {
+  ExternalLink,
+  FolderOpen,
+  Layers,
+  MousePointerClick,
+  Pencil,
+  SquareDashedMousePointer,
+  Trash2,
+} from "lucide-react";
 
 import {
   formatModifiedLabel,
   formatSelectionLabel,
   getItemBadgeLabel,
-  getItemKindLabel,
+  getItemCategoryLabel,
 } from "./presentation";
 
 export interface InspectorPanelProps {
@@ -27,12 +36,12 @@ export function InspectorPanel({
   if (selectedItems.length === 0) {
     return (
       <aside
-        className="inspector-panel inspector-panel--empty"
+        className="inspector-panel"
         aria-live="polite"
         aria-label="Board guidance"
       >
         <div className="inspector-panel__header">
-          <p className="inspector-panel__eyebrow">Board guide</p>
+          <p className="eyebrow">Board guide</p>
           <h2>Nothing selected</h2>
           <p className="inspector-panel__lede">
             Click a card to inspect it, or drag across the board to collect a
@@ -40,19 +49,36 @@ export function InspectorPanel({
           </p>
         </div>
 
-        <div className="inspector-panel__empty-block">
+        <div className="inspector-panel__list-block">
           <p className="inspector-panel__list-label">Quick moves</p>
           <ul className="inspector-panel__shortcut-list">
             <li>
-              <strong>Drag on empty board</strong>
+              <div className="inspector-panel__shortcut-row">
+                <SquareDashedMousePointer
+                  size={15}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <strong>Drag on empty board</strong>
+              </div>
               <span>Start a marquee selection.</span>
             </li>
             <li>
-              <strong>Shift-click cards</strong>
+              <div className="inspector-panel__shortcut-row">
+                <MousePointerClick
+                  size={15}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <strong>Shift-click cards</strong>
+              </div>
               <span>Build a selection without losing your place.</span>
             </li>
             <li>
-              <strong>Pile from selection</strong>
+              <div className="inspector-panel__shortcut-row">
+                <Layers size={15} strokeWidth={1.75} aria-hidden="true" />
+                <strong>Pile from selection</strong>
+              </div>
               <span>Turn scattered references into a virtual stack.</span>
             </li>
           </ul>
@@ -69,7 +95,7 @@ export function InspectorPanel({
   return (
     <aside className="inspector-panel" aria-live="polite">
       <div className="inspector-panel__header">
-        <p className="inspector-panel__eyebrow">Selection</p>
+        <p className="eyebrow">Selection</p>
         <h2>{formatSelectionLabel(selectedItems.length)}</h2>
         <p className="inspector-panel__lede">
           {isSingle
@@ -86,7 +112,7 @@ export function InspectorPanel({
           <strong>{isSingle ? leadItem.name : "Loose collection"}</strong>
           <span>
             {isSingle
-              ? getItemKindLabel(leadItem)
+              ? getItemCategoryLabel(leadItem)
               : `${selectedItems.length} cards across the studio board`}
           </span>
           <span>
@@ -118,26 +144,32 @@ export function InspectorPanel({
 
       <div className="inspector-panel__actions">
         <button className="ws-btn ws-btn--primary" onClick={onCreatePile}>
+          <Layers size={15} strokeWidth={2} aria-hidden="true" />
           Pile from selection
         </button>
 
         {isSingle ? (
           <>
             <button className="ws-btn" onClick={onOpen}>
+              <ExternalLink size={15} strokeWidth={2} aria-hidden="true" />
               Open
             </button>
             <button className="ws-btn" onClick={onReveal}>
+              <FolderOpen size={15} strokeWidth={2} aria-hidden="true" />
               Reveal
             </button>
             <button className="ws-btn" onClick={onRename}>
+              <Pencil size={15} strokeWidth={2} aria-hidden="true" />
               Rename
             </button>
             <button className="ws-btn ws-btn--danger" onClick={onTrash}>
+              <Trash2 size={15} strokeWidth={2} aria-hidden="true" />
               Trash
             </button>
           </>
         ) : (
           <button className="ws-btn ws-btn--danger" onClick={onTrash}>
+            <Trash2 size={15} strokeWidth={2} aria-hidden="true" />
             Trash selected
           </button>
         )}
